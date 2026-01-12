@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useFaceModelStore } from '@/store/useFaceModelStore';
+import { useStudioStore } from '@/store/useStudioStore';
 
 export default function WireframeProxy() {
     const meshRef = useRef<THREE.LineSegments>(null);
@@ -70,24 +71,27 @@ export default function WireframeProxy() {
                 material.color.setHex(0xffffff);
             }
         }
-    });
+    }); // End useFrame
+
+    // User requested "White Model" to be exactly the original wireframe.
+    // So we render the wireframe regardless of the view mode here.
 
     return (
         <group ref={groupRef} position={[0, subjectType === 'head' ? 0.3 : 0, 0]}>
-            {/* Wireframe Mesh */}
+            {/* Wireframe Mesh - Always Visible */}
             <lineSegments ref={meshRef} scale={[0.15, 0.15, 0.15]}>
                 {wireframeGeo && <primitive object={wireframeGeo} />}
                 <lineBasicMaterial
                     color="#ffffff"
                     transparent
-                    opacity={0.4} // Increased from 0.15
+                    opacity={0.4}
                     depthTest={true}
                     depthWrite={false}
                 />
             </lineSegments>
 
-            {/* Occlusion Mesh (The "Black Filler") */}
-            <mesh scale={[0.149, 0.149, 0.149]} geometry={geometry}>
+            {/* Occlusion Mesh (Black Filler) - Always Visible to hide back lines */}
+            <mesh scale={[0.149, 0.149, 0.149]} geometry={geometry || undefined}>
                 <meshBasicMaterial
                     color="black"
                     colorWrite={false}
@@ -95,7 +99,8 @@ export default function WireframeProxy() {
                     side={THREE.DoubleSide}
                 />
             </mesh>
-        </group>);
+        </group>
+    );
 }
 
 // Preload

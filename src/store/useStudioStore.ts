@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { generatePrompt } from '@/utils/promptUtils';
 
 interface StudioState {
     // Input
@@ -36,7 +37,7 @@ interface StudioState {
     generateImage: () => Promise<void>;
 }
 
-export const useStudioStore = create<StudioState>((set) => ({
+export const useStudioStore = create<StudioState>((set, get) => ({
     imageUrl: null, // Default to null so we see the Wireframe Head initially
     depthMapUrl: null,
     isGenerating: false,
@@ -63,14 +64,47 @@ export const useStudioStore = create<StudioState>((set) => ({
     viewMode: 'textured',
     setViewMode: (mode) => set({ viewMode: mode }),
 
+    getScreenshot: null,
+    setGetScreenshot: (fn) => set({ getScreenshot: fn }),
+
     generateImage: async () => {
+        const { imageUrl, shotPreset, focalLength, lightingPreset, isGenerating } = get();
+        if (isGenerating) return;
+
         set({ isGenerating: true, generatedImage: null });
-        // Mock Delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // Mock Result
-        set({
-            isGenerating: false,
-            generatedImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'
-        });
+
+        try {
+            const prompt = generatePrompt(shotPreset, focalLength, lightingPreset);
+
+            // Call Python API Server
+            const response = await fetch('http://127.0.0.1:8000/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    image_url: imageUrl,
+                    shot_preset: shotPreset,
+                    lighting_preset: lightingPreset,
+                    focal_length: focalLength
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                throw new Error(errorData.detail || 'Generation failed');
+            }
+
+            const data = await response.json();
+            if (data.image_data) {
+                set({ generatedImage: data.image_data });
+            }
+        } catch (error) {
+            console.error("Generation failed:", error);
+            // Optional: set some error state here
+        } finally {
+            set({ isGenerating: false });
+        }
     }
 }));

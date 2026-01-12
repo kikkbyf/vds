@@ -4,6 +4,7 @@ import React from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useFaceModelStore } from '@/store/useFaceModelStore';
 import ImageUploader from './ImageUploader';
+import PromptPreview from './PromptPreview';
 import { Layers, Box, Grid3X3 } from 'lucide-react';
 
 export default function Inspector() {
@@ -21,6 +22,7 @@ export default function Inspector() {
 
     const generateImage = useStudioStore((state) => state.generateImage);
     const isGenerating = useStudioStore((state) => state.isGenerating);
+    const imageUrl = useStudioStore((state) => state.imageUrl);
 
     // Extract hooks to top level to avoid "Rendered fewer hooks" error
     const subjectType = useFaceModelStore((s) => s.subjectType);
@@ -47,26 +49,31 @@ export default function Inspector() {
                     <button
                         className={`toggle-btn ${viewMode === 'textured' ? 'active' : ''}`}
                         onClick={() => setViewMode('textured')}
-                        title="Textured"
+                        title="Show 2D texture on 3D model"
                     >
-                        <Layers size={14} />
+                        <Layers size={14} /> 2D-3D Effect
                     </button>
                     <button
                         className={`toggle-btn ${viewMode === 'clay' ? 'active' : ''}`}
                         onClick={() => setViewMode('clay')}
-                        title="Clay Render"
+                        title="Show white clay model"
                     >
-                        <Box size={14} />
-                    </button>
-                    <button
-                        className={`toggle-btn ${viewMode === 'wireframe' ? 'active' : ''}`}
-                        onClick={() => setViewMode('wireframe')}
-                        title="Wireframe"
-                    >
-                        <Grid3X3 size={14} />
+                        <Box size={14} /> White Model
                     </button>
                 </div>
             </div>
+
+            {/* Thumbnail Preview (Only in White Model mode) */}
+            {viewMode === 'clay' && imageUrl && (
+                <div className="group">
+                    <label>Input Preview</label>
+                    <div className="thumbnail-container">
+                        <img src={imageUrl} alt="Input Subject" className="input-thumbnail" />
+                        <div className="thumbnail-hint">Input Param</div>
+                    </div>
+                </div>
+            )}
+
 
             <div className="separator" />
 
@@ -151,6 +158,8 @@ export default function Inspector() {
                 </button>
             </div>
 
+            <PromptPreview />
+
             <style jsx>{`
         .inspector-content { padding: 16px; font-family: var(--font-sans); }
         .control-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
@@ -230,7 +239,34 @@ export default function Inspector() {
             background: var(--accent-blue);
             color: white;
         }
+        
+        .thumbnail-container {
+            position: relative;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            background: #000;
+            width: 80px; /* Small thumbnail size */
+            height: 80px;
+        }
+        .input-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+        .thumbnail-hint {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 9px;
+            text-align: center;
+            padding: 2px;
+        }
       `}</style>
-        </div>
+        </div >
     );
 }
