@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String    // Hashed password
+  image         String?
+  creations     Creation[]
+  savedPrompts  PromptTemplate[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Creation {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  
+  // Generation Parameters (Snapshot for Remix)
+  prompt        String
+  negative      String?
+  aspectRatio   String
+  imageSize     String
+  shotPreset    String?
+  lightingPreset String?
+  focalLength   Int?
+  guidance      Float?
+  
+  // Assets
+  inputImageUrls String[] // JSON string or array of paths in /uploads
+  outputImageUrl String   // Path in /uploads
+  
+  status        String    @default("SUCCESS")
+  createdAt     DateTime  @default(now())
+}
+
+model PromptTemplate {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  name          String
+  content       String    // The actual prompt text
+  createdAt     DateTime  @default(now())
+}

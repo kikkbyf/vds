@@ -9,6 +9,10 @@ if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
     export GOOGLE_APPLICATION_CREDENTIALS="/app/google_gemini_service_account.json"
 fi
 
+# Sync Database Schema
+echo "Syncing Database Schema..."
+npx prisma db push
+
 # Start Backend in background
 echo "Starting Python Backend..."
 /opt/venv/bin/python3 api_server.py &

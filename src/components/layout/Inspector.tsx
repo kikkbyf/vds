@@ -5,6 +5,7 @@ import { useStudioStore } from '@/store/useStudioStore';
 import { useFaceModelStore } from '@/store/useFaceModelStore';
 import ImageUploader from './ImageUploader';
 import PromptPreview from './PromptPreview';
+import PromptManager from '../inspector/PromptManager';
 import GenerationProgressBar from '../studio/GenerationProgressBar';
 import { Layers, Box } from 'lucide-react';
 
@@ -272,6 +273,8 @@ export default function Inspector() {
 
             <div className="separator" />
 
+            <label className="sub-label">Prompt & Presets</label>
+            <PromptManager />
             <PromptPreview />
 
             <div className="action-area" style={{ marginTop: '24px' }}>

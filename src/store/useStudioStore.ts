@@ -59,6 +59,21 @@ interface StudioState {
     setEnhancePrompt: (val: boolean) => void;
 
     generateImage: () => Promise<void>;
+
+    // Remix / Restore
+    setParamsFromCreation: (params: CreationParams) => void;
+}
+
+export interface CreationParams {
+    prompt: string;
+    negative: string | null;
+    aspectRatio: string;
+    imageSize: string;
+    shotPreset: string | null;
+    lightingPreset: string | null;
+    focalLength: number | null;
+    guidance: number | null;
+    inputImageUrls: string[];
 }
 
 import { persist } from 'zustand/middleware';
@@ -131,6 +146,22 @@ export const useStudioStore = create<StudioState>()(
             getScreenshot: null,
             setGetScreenshot: (fn: () => string | null) => set({ getScreenshot: fn }),
 
+            setParamsFromCreation: (params) => {
+                set({
+                    currentPrompt: params.prompt,
+                    negativePrompt: params.negative || '',
+                    aspectRatio: params.aspectRatio,
+                    imageSize: params.imageSize,
+                    uploadedImages: params.inputImageUrls,
+
+                    // Optional overrides
+                    ...(params.shotPreset && { shotPreset: params.shotPreset }),
+                    ...(params.lightingPreset && { lightingPreset: params.lightingPreset }),
+                    ...(params.focalLength && { focalLength: params.focalLength }),
+                    ...(params.guidance && { guidanceScale: params.guidance }),
+                });
+            },
+
             generateImage: async () => {
                 const {
                     uploadedImages, shotPreset, focalLength, lightingPreset, isGenerating,
@@ -198,6 +229,23 @@ export const useStudioStore = create<StudioState>()(
                     const data = await response.json();
                     if (data.image_data) {
                         set({ generatedImage: data.image_data, generationProgress: 100, generationStatus: 'Complete' });
+
+                        // --- Auto-Save to Library ---
+                        // We do this asynchronously without awaiting so UI updates immediately
+                        import('@/actions/createCreation').then(({ createCreation }) => {
+                            createCreation({
+                                prompt: currentPrompt,
+                                aspectRatio: aspectRatio,
+                                imageSize: imageSize,
+                                shotPreset: shotPreset,
+                                lightingPreset: lightingPreset,
+                                focalLength: focalLength,
+                                guidance: guidanceScale,
+                                negative: negativePrompt,
+                                inputImages: uploadedImages, // Pass inputs
+                                outputImage: data.image_data // Pass output base64
+                            }).catch(err => console.error("Auto-save failed", err));
+                        });
                     }
                 } catch (error) {
                     console.error("Generation failed:", error);

@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Sliders, Camera, Settings, Maximize2 } from 'lucide-react';
 import Inspector from '@/components/layout/Inspector';
+import Sidebar from '@/components/layout/Sidebar';
 import RenderView from '@/components/studio/RenderView';
 
 const Viewport3D = dynamic(() => import('@/components/studio/Viewport3D'), { ssr: false, loading: () => <div className="placeholder-text">Loading Engine...</div> });
@@ -10,6 +11,7 @@ const Viewport3D = dynamic(() => import('@/components/studio/Viewport3D'), { ssr
 export default function Home() {
   return (
     <main className="grid-container">
+      <Sidebar />
       {/* Top Toolbar */}
       <header className="toolbar">
         <div className="logo">VDS <span className="beta-badge">BETA</span></div>
@@ -62,9 +64,9 @@ export default function Home() {
         .grid-container {
           display: grid;
           grid-template-areas:
-            "header header header"
-            "studio render inspector";
-          grid-template-columns: 1fr 1.2fr 300px;
+            "sidebar header header header"
+            "sidebar studio render inspector";
+          grid-template-columns: 50px 1fr 1.2fr 300px;
           grid-template-rows: 48px 1fr;
           height: 100vh;
           width: 100vw;
