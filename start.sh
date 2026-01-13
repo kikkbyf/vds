@@ -1,4 +1,5 @@
 #!/bin/bash
+export PYTHONUNBUFFERED=1
 
 # --- secrets injection ---
 # If GOOGLE_CREDENTIALS_JSON env var is set (from Railway), write it to the file
