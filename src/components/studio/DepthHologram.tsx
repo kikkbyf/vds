@@ -125,7 +125,7 @@ function RealisticHologram({ imageUrl, depthUrl, mode }: { imageUrl: string, dep
 }
 
 export default function DepthHologram() {
-    const imageUrl = useStudioStore((state) => state.imageUrl);
+    const imageUrl = useStudioStore((state) => state.uploadedImages.length > 0 ? state.uploadedImages[state.uploadedImages.length - 1] : null);
     const depthMapUrl = useStudioStore((state) => state.depthMapUrl);
     const viewMode = useStudioStore((state) => state.viewMode);
 
