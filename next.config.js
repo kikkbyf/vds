@@ -4,6 +4,11 @@ const nextConfig = {
         root: __dirname,
     },
     reactStrictMode: true,
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '50mb',
+        },
+    },
     // Required for @imgly/background-removal to load WASM/Workers correctly
     headers: async () => {
         return [

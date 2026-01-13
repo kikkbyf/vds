@@ -14,6 +14,7 @@ from src.interface.types.external_types import (
     GeminiBananaProImageToImageInput,
     GeminiBananaProTextToImageInput
 )
+import asyncio
 
 app = FastAPI()
 
@@ -77,7 +78,7 @@ async def generate_image(request: GenerateRequest):
                 guidance_scale=request.guidance_scale,
                 enhance_prompt=request.enhance_prompt
             )
-            result = await service.generate_image_from_image(input_data)
+                result = await asyncio.to_thread(service.generate_image_from_image, input_data)
         else:
             # Text-to-Image (Fallback if no image uploaded)
             input_data = GeminiBananaProTextToImageInput(
@@ -88,7 +89,7 @@ async def generate_image(request: GenerateRequest):
                 guidance_scale=request.guidance_scale,
                 enhance_prompt=request.enhance_prompt
             )
-            result = await service.generate_image_from_text(input_data)
+            result = await asyncio.to_thread(service.generate_image_from_text, input_data)
 
         if not result.success:
             raise HTTPException(status_code=500, detail=result.error or "Generation failed")
