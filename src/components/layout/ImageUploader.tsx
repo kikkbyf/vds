@@ -6,7 +6,7 @@ import { useStudioStore } from '@/store/useStudioStore';
 import { removeBackground } from '@/utils/imageProcessing';
 
 export default function ImageUploader() {
-  const setImageUrl = useStudioStore((state) => state.setImageUrl);
+  const addUploadedImage = useStudioStore((state) => state.addUploadedImage);
   const setDepthMapUrl = useStudioStore((state) => state.setDepthMapUrl);
   const setIsExtractingDepth = useStudioStore((state) => state.setIsExtractingDepth);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,30 +45,46 @@ export default function ImageUploader() {
   }, [setDepthMapUrl, setIsExtractingDepth]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
       setIsProcessing(true);
       try {
-        // Create a race: AI extraction vs 5s timeout
-        const processPromise = removeBackground(file);
-        const timeoutPromise = new Promise<string>((resolve) =>
-          setTimeout(() => resolve(URL.createObjectURL(file)), 5000)
-        );
+        for (const file of Array.from(files)) {
+          addLog(`🔄 Processing ${file.name}...`);
+          // Create a race: AI extraction vs 5s timeout
+          const processPromise = removeBackground(file);
+          const timeoutPromise = new Promise<string>((resolve) =>
+            setTimeout(() => resolve(URL.createObjectURL(file)), 5000)
+          );
 
-        const processedUrl = await Promise.race([processPromise, timeoutPromise]);
-        setImageUrl(processedUrl);
+          const processedUrl = await Promise.race([processPromise, timeoutPromise]);
 
-        // Trigger Depth Estimation
-        setIsExtractingDepth(true);
-        addLog('🚀 Sending Image to Worker...');
-        if (workerRef.current) {
-          workerRef.current.postMessage({ imageUrl: processedUrl });
+          // Convert Blob URL to Base64 Data URI for backend compatibility
+          const response = await fetch(processedUrl);
+          const blob = await response.blob();
+          const base64Url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          addUploadedImage(base64Url);
+
+          // Trigger Depth Estimation for the LAST uploaded image for now
+          // Or we could have a "Set as Primary" logic.
+          setIsExtractingDepth(true);
+          if (workerRef.current) {
+            // Note: depth worker might still work better with blob URL or create its own, 
+            // but passing base64 is usually fine for workers too if handled.
+            // However, the previous code strictly used processedUrl which was a blob.
+            // Let's pass the base64Url to be safe as workers can handle data URIs.
+            workerRef.current.postMessage({ imageUrl: base64Url });
+          }
         }
-
       } catch (error) {
-        addLog('❌ Main Extraction Failed');
-        console.error("Extraction failed", error);
-        setImageUrl(URL.createObjectURL(file));
+        addLog('❌ Processing Failed');
+        console.error("Processing failed", error);
       } finally {
         setIsProcessing(false);
       }
@@ -82,6 +98,7 @@ export default function ImageUploader() {
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/*"
+        multiple
         style={{ display: 'none' }}
       />
 

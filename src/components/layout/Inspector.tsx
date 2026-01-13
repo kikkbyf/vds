@@ -5,7 +5,8 @@ import { useStudioStore } from '@/store/useStudioStore';
 import { useFaceModelStore } from '@/store/useFaceModelStore';
 import ImageUploader from './ImageUploader';
 import PromptPreview from './PromptPreview';
-import { Layers, Box, Grid3X3 } from 'lucide-react';
+import GenerationProgressBar from '../studio/GenerationProgressBar';
+import { Layers, Box } from 'lucide-react';
 
 export default function Inspector() {
     const focalLength = useStudioStore((state) => state.focalLength);
@@ -22,21 +23,86 @@ export default function Inspector() {
 
     const generateImage = useStudioStore((state) => state.generateImage);
     const isGenerating = useStudioStore((state) => state.isGenerating);
-    const imageUrl = useStudioStore((state) => state.imageUrl);
+    const uploadedImages = useStudioStore((state) => state.uploadedImages);
+    const removeUploadedImage = useStudioStore((state) => state.removeUploadedImage);
+    const getScreenshot = useStudioStore((state) => state.getScreenshot);
 
-    // Extract hooks to top level to avoid "Rendered fewer hooks" error
+    // Generation Settings
+    const aspectRatio = useStudioStore((state) => state.aspectRatio);
+    const setAspectRatio = useStudioStore((state) => state.setAspectRatio);
+    const imageSize = useStudioStore((state) => state.imageSize);
+    const setImageSize = useStudioStore((state) => state.setImageSize);
+    const guidanceScale = useStudioStore((state) => state.guidanceScale);
+    const setGuidanceScale = useStudioStore((state) => state.setGuidanceScale);
+    const negativePrompt = useStudioStore((state) => state.negativePrompt);
+    const setNegativePrompt = useStudioStore((state) => state.setNegativePrompt);
+    const enhancePrompt = useStudioStore((state) => state.enhancePrompt);
+    const setEnhancePrompt = useStudioStore((state) => state.setEnhancePrompt);
+
+    // Face Model State (Restored)
     const subjectType = useFaceModelStore((s) => s.subjectType);
     const isAnalyzing = useFaceModelStore((s) => s.isAnalyzing);
-    const setSubjectType = useFaceModelStore.getState().setSubjectType; // Keep original for now as toggleSubjectType is new
-    const startAnalysis = useFaceModelStore((state) => state.startAnalysis); // Changed to direct hook access
+    const setSubjectType = useFaceModelStore.getState().setSubjectType;
+    const startAnalysis = useFaceModelStore((state) => state.startAnalysis);
+
+    const [viewportPreview, setViewportPreview] = React.useState<string | null>(null);
+
+    // Dynamic Viewport Preview (Update every few seconds or on certain triggers)
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            if (getScreenshot) {
+                setViewportPreview(getScreenshot());
+            }
+        }, 2000);
+        return () => clearInterval(interval);
+    }, [getScreenshot]);
 
     return (
         <div className="inspector">
             <h3>Inspector</h3>
 
+            {/* Input Assets Section */}
+            <div className="group">
+                <label>Input Assets (Prioritized)</label>
+                <div className="assets-grid">
+                    {/* 1. Viewport Capture (Always 1st) */}
+                    <div className="asset-card priority" title="Primary: 3D Viewport">
+                        <div className="thumbnail-wrapper">
+                            {viewportPreview ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={viewportPreview} alt="Viewport" />
+                            ) : (
+                                <div className="thumbnail-placeholder">3D</div>
+                            )}
+                            <div className="badge">1st (Pose)</div>
+                        </div>
+                    </div>
+
+                    {/* 2. Uploaded Images */}
+                    {uploadedImages.map((url, idx) => (
+                        <div key={idx} className="asset-card" title={`Reference ${idx + 2}`}>
+                            <div className="thumbnail-wrapper">
+                                {/* TODO: switch to next/image when stable */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={url} alt={`Input ${idx}`} />
+                                <div className="badge">{idx + 2}nd</div>
+                                <button
+                                    className="remove-overlay"
+                                    onClick={() => removeUploadedImage(idx)}
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="separator" />
+
             {/* Assets / Upload */}
             <div className="group">
-                <label>Subject</label>
+                <label>Add References</label>
                 <ImageUploader />
             </div>
 
@@ -63,16 +129,6 @@ export default function Inspector() {
                 </div>
             </div>
 
-            {/* Thumbnail Preview (Only in White Model mode) */}
-            {viewMode === 'clay' && imageUrl && (
-                <div className="group">
-                    <label>Input Preview</label>
-                    <div className="thumbnail-container">
-                        <img src={imageUrl} alt="Input Subject" className="input-thumbnail" />
-                        <div className="thumbnail-hint">Input Param</div>
-                    </div>
-                </div>
-            )}
 
 
             <div className="separator" />
@@ -148,6 +204,76 @@ export default function Inspector() {
                 </select>
             </div>
 
+            <div className="separator" />
+
+            {/* Generation Config Section */}
+            <div className="group">
+                <label>Generation Config</label>
+
+                <div className="control-subgroup">
+                    <span className="sub-label">Aspect Ratio</span>
+                    <div className="ratio-grid">
+                        {['1:1', '4:3', '3:4', '16:9', '9:16'].map((r) => (
+                            <button
+                                key={r}
+                                className={`ratio-btn ${aspectRatio === r ? 'active' : ''}`}
+                                onClick={() => setAspectRatio(r)}
+                            >
+                                {r}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="control-subgroup">
+                    <span className="sub-label">Resolution</span>
+                    <select value={imageSize} onChange={(e) => setImageSize(e.target.value)} className="config-select">
+                        <option value="1K">1K (Standard)</option>
+                        <option value="2K">2K (High Res)</option>
+                        <option value="4K">4K (Ultra Res)</option>
+                    </select>
+                </div>
+
+                <div className="control-subgroup">
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span className="sub-label">Guidance Scale</span>
+                        <span className="value-tag">{guidanceScale}</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={guidanceScale}
+                        onChange={(e) => setGuidanceScale(Number(e.target.value))}
+                        className="config-slider"
+                    />
+                </div>
+
+                <div className="control-subgroup">
+                    <span className="sub-label">Negative Prompt</span>
+                    <textarea
+                        className="config-textarea"
+                        placeholder="Items to exclude (e.g. text, logo, blurry)"
+                        value={negativePrompt}
+                        onChange={(e) => setNegativePrompt(e.target.value)}
+                    />
+                </div>
+
+                <div className="control-subgroup">
+                    <button
+                        className={`toggle-action ${enhancePrompt ? 'active' : ''}`}
+                        onClick={() => setEnhancePrompt(!enhancePrompt)}
+                    >
+                        {enhancePrompt ? '✨ Prompt Enhancement ON' : 'Prompt Enhancement OFF'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="separator" />
+
+            <PromptPreview />
+
             <div className="action-area" style={{ marginTop: '24px' }}>
                 <button
                     className="bake-btn"
@@ -156,20 +282,171 @@ export default function Inspector() {
                 >
                     {isGenerating ? 'Processing...' : 'Bake Angles'}
                 </button>
+                <GenerationProgressBar />
             </div>
 
-            <PromptPreview />
-
             <style jsx>{`
+        .inspector {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-family: var(--font-sans);
+            box-sizing: border-box;
+        }
         .inspector-content { padding: 16px; font-family: var(--font-sans); }
         .control-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .control-group label { 
+        .control-subgroup { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .sub-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+        .value-tag { font-size: 10px; color: var(--accent-blue); font-weight: bold; }
+        
+        .ratio-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+        }
+        .ratio-btn {
+            background: var(--control-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 10px;
+            padding: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ratio-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        .config-select {
+            background: var(--control-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+        }
+        .config-slider {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+        .config-textarea {
+            background: var(--control-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            resize: none;
+            height: 40px;
+            outline: none;
+        }
+        .config-textarea:focus { border-color: var(--accent-blue); color: var(--text-primary); }
+        .toggle-action {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px dashed var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toggle-action.active {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .group label { 
             font-size: 11px; 
             color: var(--text-secondary); 
             text-transform: uppercase; 
             letter-spacing: 0.5px; 
             font-weight: 500;
         }
+
+        .assets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .asset-card {
+            aspect-ratio: 1;
+            background: #000;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+        .asset-card.priority {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
+        .thumbnail-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .thumbnail-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .thumbnail-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        .badge {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            font-size: 8px;
+            padding: 2px;
+            text-align: center;
+        }
+        .priority .badge {
+            background: var(--accent-blue);
+        }
+        .remove-overlay {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .asset-card:hover .remove-overlay {
+            opacity: 1;
+        }
+
         .control-group select {
           background: var(--control-bg);
           border: 1px solid var(--border-color);

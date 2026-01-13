@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 项目环境与配置指南
 
-## Getting Started
+## 📋 项目概况 (Project Overview)
+- **架构**: Next.js (Frontend) + Python FastAPI (Backend)
+- **核心功能**: Google Vertex AI (Gemini/Imagen) 图像生成
+- **位置**: 本地桌面 `/Users/edy/Documents/fasionphotoeditor`
 
-First, run the development server:
+## 🛠️ 环境依赖 (Dependencies)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 1. 前端 (Frontend)
+- **Node.js**: 推荐 v20.x 或更高
+- **核心库**:
+  - `next`: 16.1.1
+  - `react`: 19.2.3
+  - `three`: ^0.182.0
+  - `@imgly/background-removal`: ^1.7.0
+- **安装**:
+  ```bash
+  npm install
+  ```
+
+### 2. 后端 (Backend)
+- **Python**: 推荐 v3.10 或更高
+- **虚拟环境**: 建议使用 `venv`
+- **核心库**:
+  - `fastapi`
+  - `uvicorn`
+  - `python-dotenv`
+  - `google-genai` (Google Official GenAI SDK)
+- **安装**:
+  ```bash
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install fastapi uvicorn python-dotenv google-genai pydantic
+  ```
+
+## 🔑 环境变量 (.env)
+请在项目根目录创建 `.env` 文件，并填入以下内容：
+
+```properties
+# [必填] Google Cloud Project ID
+GOOGLE_CLOUD_PROJECT=your-project-id
+
+# [选填] Vertex AI Region (默认 us-east4)
+GOOGLE_CLOUD_LOCATION=us-east4
+
+# [必填] 认证 Key 路径
+# 指向根目录下的 JSON 密钥文件
+GOOGLE_APPLICATION_CREDENTIALS=./vertexai_key.json
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**注意**: 项目根目录必须包含 `vertexai_key.json` 文件（Google Service Account Key）。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 启动指令 (Commands)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 启动后端 (Port 8000)
+```bash
+npm run gemini
+# 等同于: ./venv/bin/python3 api_server.py
+```
 
-## Learn More
+### 启动前端 (Port 9229)
+```bash
+npm run dev
+# 等同于: ./scripts/dev-start.sh (开启 Turbopack)
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔌 API 调用示例
+前端硬编码调用本地接口:
+- **URL**: `http://127.0.0.1:8000/generate`
+- **Method**: `POST`

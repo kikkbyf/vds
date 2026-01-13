@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Center, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import * as THREE from 'three';
@@ -13,11 +13,9 @@ const CaptureRegistrar = () => {
     const setGetScreenshot = useStudioStore((state) => state.setGetScreenshot);
 
     useEffect(() => {
-        setGetScreenshot(async () => {
+        setGetScreenshot(() => {
             // Force a render if needed, or just capture current buffer.
-            // "preserveDrawingBuffer" might be needed in Canvas config if we capture outside of render loop,
-            // but usually valid immediately after render.
-            // Simple capture:
+            // "preserveDrawingBuffer" is enabled in Canvas config.
             return gl.domElement.toDataURL('image/png');
         });
     }, [gl, setGetScreenshot]);

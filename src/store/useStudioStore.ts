@@ -3,8 +3,9 @@ import { generatePrompt } from '@/utils/promptUtils';
 
 interface StudioState {
     // Input
-    imageUrl: string | null;
-    setImageUrl: (url: string) => void;
+    uploadedImages: string[];
+    addUploadedImage: (url: string) => void;
+    removeUploadedImage: (index: number) => void;
 
     // Camera / Lens
     focalLength: number; // e.g. 35, 50, 85
@@ -23,6 +24,14 @@ interface StudioState {
     setIsGenerating: (val: boolean) => void;
     generatedImage: string | null;
     setGeneratedImage: (val: string | null) => void;
+    currentPrompt: string;
+    setPrompt: (val: string) => void;
+
+    // Progress Tracking
+    generationStatus: string;
+    generationProgress: number; // 0-100
+    setGenerationStatus: (status: string) => void;
+    setGenerationProgress: (progress: number) => void;
 
     // Depth Map
     depthMapUrl: string | null;
@@ -34,77 +43,187 @@ interface StudioState {
     viewMode: 'textured' | 'clay' | 'wireframe';
     setViewMode: (mode: 'textured' | 'clay' | 'wireframe') => void;
 
+    getScreenshot: (() => string | null) | null;
+    setGetScreenshot: (fn: () => string | null) => void;
+
+    // Generation Settings
+    aspectRatio: string;
+    setAspectRatio: (val: string) => void;
+    imageSize: string;
+    setImageSize: (val: string) => void;
+    guidanceScale: number;
+    setGuidanceScale: (val: number) => void;
+    negativePrompt: string;
+    setNegativePrompt: (val: string) => void;
+    enhancePrompt: boolean;
+    setEnhancePrompt: (val: boolean) => void;
+
     generateImage: () => Promise<void>;
 }
 
-export const useStudioStore = create<StudioState>((set, get) => ({
-    imageUrl: null, // Default to null so we see the Wireframe Head initially
-    depthMapUrl: null,
-    isGenerating: false,
-    isExtractingDepth: false,
+import { persist } from 'zustand/middleware';
 
-    setImageUrl: (url) => set({ imageUrl: url }),
-    setDepthMapUrl: (url) => set({ depthMapUrl: url }),
+export const useStudioStore = create<StudioState>()(
+    persist(
+        (set, get) => ({
+            uploadedImages: [],
+            depthMapUrl: null,
+            isGenerating: false,
+            isExtractingDepth: false,
 
-    focalLength: 50,
-    setFocalLength: (val) => set({ focalLength: val }),
+            // Progress Defaults
+            generationStatus: 'Ready',
+            generationProgress: 0,
+            setGenerationStatus: (val) => set({ generationStatus: val }),
+            setGenerationProgress: (val) => set({ generationProgress: val }),
 
-    lightingPreset: 'rembrandt',
-    setLightingPreset: (val) => set({ lightingPreset: val }),
+            // Generation Defaults
+            aspectRatio: '1:1',
+            imageSize: '1K',
+            guidanceScale: 60,
+            negativePrompt: '',
+            enhancePrompt: true,
 
-    shotPreset: 'closeup',
-    setShotPreset: (val) => set({ shotPreset: val }),
+            setAspectRatio: (val) => set({ aspectRatio: val }),
+            setImageSize: (val) => set({ imageSize: val }),
+            setGuidanceScale: (val) => set({ guidanceScale: val }),
+            setNegativePrompt: (val) => set({ negativePrompt: val }),
+            setEnhancePrompt: (val) => set({ enhancePrompt: val }),
 
-    setIsGenerating: (val) => set({ isGenerating: val }),
-    generatedImage: null,
-    setGeneratedImage: (val) => set({ generatedImage: val }),
+            addUploadedImage: (url) => set((state) => ({
+                uploadedImages: [...state.uploadedImages, url]
+            })),
+            removeUploadedImage: (index) => set((state) => ({
+                uploadedImages: state.uploadedImages.filter((_, i) => i !== index)
+            })),
+            setDepthMapUrl: (url) => set({ depthMapUrl: url }),
 
-    setIsExtractingDepth: (val) => set({ isExtractingDepth: val }),
+            focalLength: 50,
+            setFocalLength: (val) => set((state) => ({
+                focalLength: val,
+                currentPrompt: generatePrompt(state.shotPreset, val, state.lightingPreset)
+            })),
 
-    viewMode: 'textured',
-    setViewMode: (mode) => set({ viewMode: mode }),
+            lightingPreset: 'rembrandt',
+            setLightingPreset: (val) => set((state) => ({
+                lightingPreset: val,
+                currentPrompt: generatePrompt(state.shotPreset, state.focalLength, val)
+            })),
 
-    getScreenshot: null,
-    setGetScreenshot: (fn) => set({ getScreenshot: fn }),
+            shotPreset: 'closeup',
+            setShotPreset: (val) => set((state) => ({
+                shotPreset: val,
+                currentPrompt: generatePrompt(val, state.focalLength, state.lightingPreset)
+            })),
 
-    generateImage: async () => {
-        const { imageUrl, shotPreset, focalLength, lightingPreset, isGenerating } = get();
-        if (isGenerating) return;
+            setIsGenerating: (val) => set({ isGenerating: val }),
+            generatedImage: null,
+            setGeneratedImage: (val) => set({ generatedImage: val }),
 
-        set({ isGenerating: true, generatedImage: null });
+            currentPrompt: generatePrompt('closeup', 50, 'rembrandt'),
+            setPrompt: (val) => set({ currentPrompt: val }),
 
-        try {
-            const prompt = generatePrompt(shotPreset, focalLength, lightingPreset);
+            setIsExtractingDepth: (val) => set({ isExtractingDepth: val }),
 
-            // Call Python API Server
-            const response = await fetch('http://127.0.0.1:8000/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    prompt: prompt,
-                    image_url: imageUrl,
-                    shot_preset: shotPreset,
-                    lighting_preset: lightingPreset,
-                    focal_length: focalLength
-                }),
-            });
+            viewMode: 'textured',
+            setViewMode: (mode) => set({ viewMode: mode }),
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-                throw new Error(errorData.detail || 'Generation failed');
+            getScreenshot: null,
+            setGetScreenshot: (fn: () => string | null) => set({ getScreenshot: fn }),
+
+            generateImage: async () => {
+                const {
+                    uploadedImages, shotPreset, focalLength, lightingPreset, isGenerating,
+                    currentPrompt, getScreenshot, aspectRatio, imageSize, guidanceScale,
+                    negativePrompt, enhancePrompt
+                } = get();
+                if (isGenerating) return;
+
+                set({ isGenerating: true, generatedImage: null, generationProgress: 5, generationStatus: 'Initializing...' });
+
+                try {
+                    // 1. Capture Viewport Screenshot
+                    set({ generationStatus: 'Capturing Viewport...', generationProgress: 15 });
+                    const viewportCapture = getScreenshot ? getScreenshot() : null;
+
+                    // 2. Prepare image list
+                    set({ generationStatus: 'Preparing Assets...', generationProgress: 30 });
+                    const finalImages = [];
+                    if (viewportCapture) {
+                        finalImages.push(viewportCapture);
+                    }
+                    finalImages.push(...uploadedImages);
+
+                    // Call Python API Server
+                    set({ generationStatus: 'Sending to Gemini 3 Pro...', generationProgress: 50 });
+
+                    // Start a slow synthetic progress animation while waiting
+                    const progressInterval = setInterval(() => {
+                        set((state) => {
+                            if (state.generationProgress < 90) {
+                                return { generationProgress: state.generationProgress + 1 };
+                            }
+                            return {};
+                        });
+                    }, 500);
+
+                    const response = await fetch('http://127.0.0.1:8000/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            prompt: currentPrompt,
+                            images: finalImages,
+                            shot_preset: shotPreset,
+                            lighting_preset: lightingPreset,
+                            focal_length: focalLength,
+                            // New Parameters
+                            aspect_ratio: aspectRatio,
+                            image_size: imageSize,
+                            guidance_scale: guidanceScale,
+                            negative_prompt: negativePrompt,
+                            enhance_prompt: enhancePrompt
+                        }),
+                    });
+
+                    clearInterval(progressInterval);
+                    set({ generationProgress: 95, generationStatus: 'Processing Response...' });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                        throw new Error(errorData.detail || 'Generation failed');
+                    }
+
+                    const data = await response.json();
+                    if (data.image_data) {
+                        set({ generatedImage: data.image_data, generationProgress: 100, generationStatus: 'Complete' });
+                    }
+                } catch (error) {
+                    console.error("Generation failed:", error);
+                    set({ generationStatus: 'Error: ' + (error as Error).message });
+                } finally {
+                    set({ isGenerating: false });
+                    // Reset status after a delay
+                    setTimeout(() => set({ generationStatus: 'Ready', generationProgress: 0 }), 3000);
+                }
             }
-
-            const data = await response.json();
-            if (data.image_data) {
-                set({ generatedImage: data.image_data });
-            }
-        } catch (error) {
-            console.error("Generation failed:", error);
-            // Optional: set some error state here
-        } finally {
-            set({ isGenerating: false });
+        }),
+        {
+            name: 'fasion-photo-studio-storage',
+            partialize: (state) => ({
+                // Persist only these fields
+                currentPrompt: state.currentPrompt,
+                shotPreset: state.shotPreset,
+                focalLength: state.focalLength,
+                lightingPreset: state.lightingPreset,
+                aspectRatio: state.aspectRatio,
+                imageSize: state.imageSize,
+                guidanceScale: state.guidanceScale,
+                negativePrompt: state.negativePrompt,
+                enhancePrompt: state.enhancePrompt,
+                viewMode: state.viewMode
+            }),
         }
-    }
-}));
+    )
+);

@@ -27,7 +27,7 @@ export default function Home() {
       <section className="panel studio-panel">
         <div className="panel-header">
           <div className="panel-title"><Maximize2 size={14} /> 3D Control</div>
-          <div className="panel-tools">Angle: 0° 15'</div>
+          <div className="panel-tools">Angle: 0° 15&apos;</div>
         </div>
         <div className="panel-content viewport-3d">
           <Viewport3D />
@@ -53,7 +53,9 @@ export default function Home() {
         <div className="panel-header">
           <div className="panel-title"><Sliders size={14} /> Inspector</div>
         </div>
-        <Inspector />
+        <div className="panel-content inspector-content">
+          <Inspector />
+        </div>
       </aside>
 
       <style jsx>{`
@@ -112,7 +114,12 @@ export default function Home() {
         }
         .studio-panel { grid-area: studio; }
         .render-panel { grid-area: render; }
-        .inspector-panel { grid-area: inspector; }
+        .inspector-panel { 
+          grid-area: inspector; 
+          display: flex;
+          flex-direction: column;
+          min-height: 0; /* allow inner scroll */
+        }
 
         .panel-header {
           height: 36px;
@@ -127,6 +134,7 @@ export default function Home() {
         }
         .panel-title { display: flex; align-items: center; gap: 8px; font-weight: 500; }
         .panel-content { flex: 1; position: relative; }
+        .inspector-content { flex: 1; min-height: 0; overflow-y: auto; }
 
         .panel-footer {
           height: 32px;

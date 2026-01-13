@@ -16,6 +16,7 @@ export default function RenderView() {
                 </div>
             ) : generatedImage ? (
                 <div className="result-view">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={generatedImage} alt="Rendered Result" />
                     <div className="overlay-actions">
                         <button className="action-btn download"><Download size={16} /></button>

@@ -1,35 +1,34 @@
 'use client';
 
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import type { GLTF } from 'three-stdlib';
 import { useFaceModelStore } from '@/store/useFaceModelStore';
-import { useStudioStore } from '@/store/useStudioStore';
+
+type HeadGLTF = GLTF & { nodes: Record<string, THREE.Object3D> };
 
 export default function WireframeProxy() {
     const meshRef = useRef<THREE.LineSegments>(null);
     const groupRef = useRef<THREE.Group>(null);
 
-    const poseParams = useFaceModelStore((state) => state.poseParams);
-    const shapeParams = useFaceModelStore((state) => state.shapeParams);
-    const expressionParams = useFaceModelStore((state) => state.expressionParams);
     const isAnalyzing = useFaceModelStore((state) => state.isAnalyzing);
     const landmarksDetected = useFaceModelStore((state) => state.landmarksDetected);
     const subjectType = useFaceModelStore((state) => state.subjectType);
 
     // Load the external Head Model
-    const { nodes } = useGLTF('/head.glb') as any;
+    const { nodes } = useGLTF('/head.glb') as HeadGLTF;
     // Usually LeePerrySmith has a mesh named 'LeePerrySmith' or similar. 
     // We'll traverse or just use the first mesh we find if we don't know the name.
 
     const headGeometry = useMemo(() => {
         let geo: THREE.BufferGeometry | null = null;
         if (nodes && Object.keys(nodes).length > 0) {
-            // Try to find a mesh
-            Object.values(nodes).forEach((node: any) => {
-                if (node.isMesh && !geo) {
-                    geo = node.geometry;
+            Object.values(nodes).forEach((node) => {
+                const mesh = node as THREE.Mesh;
+                if (mesh.isMesh && !geo && mesh.geometry) {
+                    geo = mesh.geometry as THREE.BufferGeometry;
                 }
             });
         }
