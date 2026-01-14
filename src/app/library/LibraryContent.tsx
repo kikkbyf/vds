@@ -7,11 +7,9 @@ import { Bug } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const DebugLogModal = dynamic(() => import('@/components/library/DebugLogModal'), { ssr: false });
-const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
 
 export default function LibraryContent({ creations, isAdmin }: { creations: any[], isAdmin: boolean }) {
     const [showLogs, setShowLogs] = useState(false);
-    const [showAdmin, setShowAdmin] = useState(false);
 
     return (
         <div className="library-layout">
@@ -25,15 +23,6 @@ export default function LibraryContent({ creations, isAdmin }: { creations: any[
                     </div>
 
                     <div className="flex gap-2">
-                        {isAdmin && (
-                            <button
-                                onClick={() => setShowAdmin(true)}
-                                className="debug-btn !text-red-400 !border-red-400/30 hover:!bg-red-400/10"
-                                title="Admin Panel"
-                            >
-                                <span>Approvals</span>
-                            </button>
-                        )}
                         <button
                             onClick={() => setShowLogs(true)}
                             className="debug-btn"
@@ -51,7 +40,6 @@ export default function LibraryContent({ creations, isAdmin }: { creations: any[
             </main>
 
             {showLogs && <DebugLogModal onClose={() => setShowLogs(false)} />}
-            {showAdmin && <AdminPanelModal onClose={() => setShowAdmin(false)} />}
 
             <style jsx>{`
                 .library-layout {
