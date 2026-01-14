@@ -1,7 +1,9 @@
 'use client';
 
-import { Shield } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { Home, Image as ImageIcon, LogOut, Shield } from 'lucide-react';
+import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { getPendingUsers } from '@/actions/admin';
 import dynamic from 'next/dynamic';
