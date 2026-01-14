@@ -59,71 +59,229 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#111] border border-white/10 rounded-2xl p-8 shadow-2xl">
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-white mb-2">
-                        {isLogin ? 'Welcome Back' : 'Create Account'}
-                    </h1>
-                    <p className="text-gray-400 text-sm">
-                        {isLogin ? 'Enter your credentials to access your studio' : 'Start your creative journey with VDS'}
-                    </p>
+        <div className="login-container">
+            <div className="retro-window">
+                <div className="window-header">
+                    <div className="window-title">VDS System Access</div>
+                    <div className="window-controls">
+                        <button disabled>×</button>
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</label>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                <div className="window-content">
+                    <div className="brand-section">
+                        <div className="logo-text">VDS<span className="version">v1.14</span></div>
+                        <p className="system-msg">
+                            {isLogin ? 'Enter authorized credentials.' : 'New user registration sequence.'}
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="retro-form">
+                        <div className="input-group">
+                            <label>Username:</label>
                             <input
                                 name="email"
                                 type="email"
                                 required
-                                className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-white/30 transition-colors"
-                                placeholder="name@example.com"
+                                placeholder="Enter email..."
+                                className="retro-input"
                             />
                         </div>
-                    </div>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Password</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                        <div className="input-group">
+                            <label>Password:</label>
                             <input
                                 name="password"
                                 type="password"
                                 required
                                 minLength={6}
-                                className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-white/30 transition-colors"
-                                placeholder="••••••••"
+                                placeholder="********"
+                                className="retro-input"
                             />
                         </div>
-                    </div>
 
-                    {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs text-center">
-                            {error}
+                        {error && (
+                            <div className="error-box">
+                                <span className="error-icon">⚠</span>
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="action-row">
+                            <button
+                                type="button"
+                                onClick={() => setIsLogin(!isLogin)}
+                                className="retro-btn secondary"
+                            >
+                                {isLogin ? 'Register...' : 'Cancel'}
+                            </button>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="retro-btn primary"
+                            >
+                                {loading ? 'Processing...' : (isLogin ? 'Connect' : 'Initialize')}
+                            </button>
                         </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-white text-black font-medium py-2.5 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : (isLogin ? 'Sign In' : 'Sign Up')}
-                    </button>
-                </form>
-
-                <div className="mt-6 text-center">
-                    <button
-                        onClick={() => setIsLogin(!isLogin)}
-                        className="text-xs text-gray-500 hover:text-white transition-colors"
-                    >
-                        {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                    </button>
+                    </form>
                 </div>
             </div>
+
+            <style jsx>{`
+                .login-container {
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #555;
+                    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+                }
+
+                .retro-window {
+                    width: 400px;
+                    background: #c0c0c0;
+                    border: 2px solid;
+                    border-color: #dfdfdf #404040 #404040 #dfdfdf;
+                    box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+                    padding: 2px;
+                }
+
+                .window-header {
+                    background: #000080;
+                    padding: 4px 8px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 4px;
+                }
+
+                .window-title {
+                    color: white;
+                    font-weight: bold;
+                    font-size: 14px;
+                    letter-spacing: 0.5px;
+                }
+
+                .window-controls button {
+                    width: 16px;
+                    height: 14px;
+                    background: #c0c0c0;
+                    border: 1px solid;
+                    border-color: #dfdfdf #404040 #404040 #dfdfdf;
+                    font-size: 10px;
+                    line-height: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: default;
+                }
+
+                .window-content {
+                    padding: 24px;
+                }
+
+                .brand-section {
+                    margin-bottom: 24px;
+                }
+
+                .logo-text {
+                    font-size: 24px;
+                    font-weight: 900;
+                    color: #404040;
+                    text-shadow: 1px 1px 0px white;
+                    margin-bottom: 4px;
+                }
+
+                .version {
+                    font-size: 12px;
+                    margin-left: 8px;
+                    color: #808080;
+                    font-weight: normal;
+                }
+
+                .system-msg {
+                    font-size: 14px;
+                    color: #404040;
+                }
+
+                .retro-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
+
+                .input-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+
+                label {
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #000;
+                }
+
+                .retro-input {
+                    background: white;
+                    border: 2px solid;
+                    border-color: #404040 #dfdfdf #dfdfdf #404040;
+                    padding: 6px 8px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                    color: #000;
+                    outline: none;
+                }
+
+                .retro-input:focus {
+                    background: #fff;
+                }
+
+                .error-box {
+                    border: 1px dashed #ff0000;
+                    background: #fff0f0;
+                    color: #d00000;
+                    font-size: 12px;
+                    padding: 8px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .action-row {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 12px;
+                    margin-top: 8px;
+                }
+
+                .retro-btn {
+                    background: #c0c0c0;
+                    border: 2px solid;
+                    border-color: #dfdfdf #404040 #404040 #dfdfdf;
+                    padding: 6px 20px;
+                    font-size: 13px;
+                    color: #000;
+                    cursor: pointer;
+                    font-family: 'Tahoma', sans-serif;
+                }
+
+                .retro-btn:active {
+                    border-color: #404040 #dfdfdf #dfdfdf #404040;
+                    transform: translate(1px, 1px);
+                }
+
+                .retro-btn.primary {
+                    font-weight: bold;
+                    border: 2px solid #000; /* Extra bold border for emphasis */
+                }
+
+                .retro-btn:disabled {
+                    color: #808080;
+                    cursor: not-allowed;
+                }
+            `}</style>
         </div>
     );
 }
