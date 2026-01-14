@@ -16,6 +16,7 @@ npx prisma db push
 # Auto-create Admin User (Safe to run multiple times, it uses upsert)
 echo "Ensuring Admin User Exists..."
 node scripts/create-admin.js "yifan.bu17@gmail.com" "kikk9229"
+node scripts/approve-admin.js
 
 # Start Backend in background
 echo "Starting Python Backend..."
