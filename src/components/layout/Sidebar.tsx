@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Image as ImageIcon, LogOut, Shield } from 'lucide-react';
+import { Home, Image as ImageIcon, LogOut, Shield, Coins } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { getPendingUsers } from '@/actions/admin';
+import { getUserCredits } from '@/actions/user';
 import dynamic from 'next/dynamic';
 
 const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
@@ -17,21 +18,35 @@ export default function Sidebar() {
 
     const [showAdmin, setShowAdmin] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
+    const [credits, setCredits] = useState(0);
 
     const isAdmin = session?.user?.role === 'ADMIN';
 
     const isActive = (path: string) => pathname === path;
 
     useEffect(() => {
-        if (!isAdmin) return;
+        // Fetch credits for everyone
+        if (session?.user) {
+            fetchCredits();
+        }
 
-        // Initial fetch
-        checkPending();
+        if (isAdmin) {
+            // Initial fetch
+            checkPending();
 
-        // Poll every 30s
-        const interval = setInterval(checkPending, 30000);
-        return () => clearInterval(interval);
-    }, [isAdmin]);
+            // Poll every 30s
+            const interval = setInterval(() => {
+                checkPending();
+                fetchCredits(); // Poll credits too
+            }, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [session, isAdmin]);
+
+    const fetchCredits = async () => {
+        const c = await getUserCredits();
+        setCredits(c);
+    };
 
     const checkPending = async () => {
         try {
@@ -70,6 +85,11 @@ export default function Sidebar() {
                             </div>
                         </button>
                     )}
+
+                    <div className="credits-display" title="Your Credits">
+                        <Coins size={16} className="text-yellow-500" />
+                        <span className="credits-text">{credits}</span>
+                    </div>
                 </div>
 
                 <div className="sidebar-bottom">
@@ -138,6 +158,20 @@ export default function Sidebar() {
                         background-color: #ef4444; /* Red */
                         border-radius: 50%;
                         border: 1px solid var(--bg-panel);
+                    }
+                    .credits-display {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 2px;
+                        margin-top: 8px;
+                        padding-top: 8px;
+                        border-top: 1px solid rgba(255,255,255,0.1);
+                    }
+                    .credits-text {
+                        font-size: 10px;
+                        color: #fbbf24;
+                        font-weight: bold;
                     }
                 `}</style>
             </aside>

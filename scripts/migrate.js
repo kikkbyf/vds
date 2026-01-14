@@ -52,8 +52,9 @@ async function runMigration(version) {
         case 1:
             await migrationV1_BackfillApproved();
             break;
-        // Future cases:
-        // case 2: await migrationV2_RenameColumn(); break;
+        case 2:
+            await migrationV2_InitCredits();
+            break;
         default:
             console.warn(`No logic defined for v${version}`);
     }

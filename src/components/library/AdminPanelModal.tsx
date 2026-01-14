@@ -1,206 +1,186 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { X, Check, Trash2, Coins } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getPendingUsers, approveUser, rejectUser } from '@/actions/admin';
-import { X, Check, Trash2 } from 'lucide-react';
+import { getAllUsers, approveUser, rejectUser, updateUserCredits } from '@/actions/admin';
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-        loadUsers();
-        return () => setMounted(false);
-    }, []);
+    const [editCreditsId, setEditCreditsId] = useState<string | null>(null);
+    const [tempCredits, setTempCredits] = useState<number>(0);
 
     const loadUsers = async () => {
-        const list = await getPendingUsers();
+        setLoading(true);
+        const list = await getAllUsers();
         setUsers(list);
         setLoading(false);
     };
 
-    const handleApprove = async (userId: string) => {
-        if (!confirm('Approve this user?')) return;
-        const res = await approveUser(userId);
-        if (res.success) loadUsers();
+    useEffect(() => {
+        loadUsers();
+    }, []);
+
+    const handleApprove = async (id: string) => {
+        await approveUser(id);
+        loadUsers();
     };
 
-    const handleReject = async (userId: string) => {
-        if (!confirm('Reject and delete this user request?')) return;
-        const res = await rejectUser(userId);
-        if (res.success) loadUsers();
+    const handleReject = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this user?')) return;
+        await rejectUser(id);
+        loadUsers();
     };
 
-    if (!mounted) return null;
+    const startEditCredits = (user: any) => {
+        setEditCreditsId(user.id);
+        setTempCredits(user.credits || 0);
+    };
+
+    const saveCredits = async (id: string) => {
+        await updateUserCredits(id, tempCredits);
+        setEditCreditsId(null);
+        loadUsers();
+    };
+
+    if (typeof document === 'undefined') return null;
 
     return createPortal(
-        <div className="modal-overlay">
-            <div className="retro-window">
-                <div className="window-header">
-                    <div className="window-title">System Administrator</div>
-                    <div className="window-controls">
-                        <button onClick={onClose}>×</button>
-                    </div>
+        <div className="admin-overlay">
+            <div className="window retro-window">
+                <div className="window-title-bar">
+                    <div className="title">System Administrator</div>
+                    <button className="close-btn" onClick={onClose}>
+                        <X size={14} />
+                    </button>
                 </div>
-
                 <div className="window-content">
-                    <div className="panel-info">
-                        <strong>Pending Access Requests</strong>
-                        <span>{users.length} item(s)</span>
-                    </div>
-
-                    <div className="user-list-frame">
+                    <div className="content-inner">
+                        <h3>User Database</h3>
                         {loading ? (
-                            <div className="status-msg">Scanning network...</div>
-                        ) : users.length === 0 ? (
-                            <div className="status-msg">No pending requests found.</div>
+                            <p>Loading...</p>
                         ) : (
-                            <table className="retro-table">
-                                <thead>
-                                    <tr>
-                                        <th>User Identity</th>
-                                        <th>Timestamp</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.map(user => (
-                                        <tr key={user.id}>
-                                            <td className="user-email">{user.email}</td>
-                                            <td className="user-date">{new Date(user.createdAt).toLocaleDateString()}</td>
-                                            <td className="action-cell">
-                                                <button
-                                                    onClick={() => handleReject(user.id)}
-                                                    className="retro-btn danger small"
-                                                    title="Reject"
-                                                >
-                                                    REJECT
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApprove(user.id)}
-                                                    className="retro-btn success small"
-                                                    title="Approve"
-                                                >
-                                                    APPROVE
-                                                </button>
-                                            </td>
+                            <div className="table-container">
+                                <table className="retro-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th>Credits</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {users.map(u => (
+                                            <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
+                                                <td>{u.email}</td>
+                                                <td>{u.role}</td>
+                                                <td>
+                                                    {u.approved ?
+                                                        <span className="badge success">Active</span> :
+                                                        <span className="badge warning">Pending</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    {editCreditsId === u.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                type="number"
+                                                                value={tempCredits}
+                                                                onChange={e => setTempCredits(Number(e.target.value))}
+                                                                className="credit-input"
+                                                            />
+                                                            <button onClick={() => saveCredits(u.id)} className="icon-btn save">
+                                                                <Check size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 cursor-pointer hover:text-blue-400" onClick={() => startEditCredits(u)}>
+                                                            <Coins size={14} className="text-yellow-500" />
+                                                            <span>{u.credits ?? 0}</span>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="actions">
+                                                    {!u.approved && (
+                                                        <button className="retro-btn sm approve" onClick={() => handleApprove(u.id)}>
+                                                            Approve
+                                                        </button>
+                                                    )}
+                                                    <button className="retro-btn sm reject" onClick={() => handleReject(u.id)}>
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 </div>
             </div>
 
             <style jsx>{`
-                .modal-overlay {
+                .admin-overlay {
                     position: fixed;
                     top: 0;
                     left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.4);
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(2px);
+                    z-index: 9999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 9999;
-                    font-family: 'Tahoma', 'Segoe UI', sans-serif;
                 }
-
-                .retro-window {
-                    width: 500px;
+                .window {
+                    width: 800px;
+                    max-width: 90vw;
                     background: #c0c0c0;
-                    border: 2px solid;
-                    border-color: #dfdfdf #404040 #404040 #dfdfdf;
+                    border: 2px solid white;
+                    border-right-color: #404040;
+                    border-bottom-color: #404040;
                     box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
-                    padding: 2px;
+                    display: flex;
+                    flex-direction: column;
                 }
-
-                .window-header {
+                .window-title-bar {
                     background: #000080;
+                    color: white;
                     padding: 4px 8px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 4px;
-                }
-
-                .window-title {
-                    color: white;
                     font-weight: bold;
-                    font-size: 14px;
-                    letter-spacing: 0.5px;
+                    font-family: 'Courier New', monospace;
                 }
-
-                .window-controls button {
-                    width: 16px;
-                    height: 14px;
+                .close-btn {
                     background: #c0c0c0;
-                    border: 1px solid;
-                    border-color: #dfdfdf #404040 #404040 #dfdfdf;
-                    font-size: 10px;
-                    line-height: 10px;
+                    border: 1px solid white;
+                    border-right-color: #404040;
+                    border-bottom-color: #404040;
+                    width: 20px;
+                    height: 20px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                 }
-
+                .close-btn:active {
+                    border: 1px solid #404040;
+                    border-right-color: white;
+                    border-bottom-color: white;
+                }
                 .window-content {
-                    padding: 12px;
+                    padding: 16px;
+                    font-family: 'Courier New', monospace;
                 }
-
-                .panel-info {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                    font-size: 12px;
-                }
-
-                .user-list-frame {
+                .content-inner {
                     background: white;
-                    border: 2px solid;
-                    border-color: #404040 #dfdfdf #dfdfdf #404040;
-                    overflow: auto;
-                    height: 300px;
-                    padding: 2px;
-                }
-
-                .status-msg {
-                    padding: 20px;
-                    text-align: center;
-                    color: #808080;
-                    font-style: italic;
-                    font-size: 13px;
-                }
-
-                .retro-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 12px;
-                }
-
-                .retro-table th {
-                    text-align: left;
-                    padding: 4px 8px;
-                    border-bottom: 1px solid #c0c0c0;
-                    color: #808080;
-                    font-weight: normal;
-                }
-
-                .retro-table td {
-                    padding: 6px 8px;
-                    color: #000;
-                }
-
-                .retro-table tr:hover {
-                    background: #000080;
-                    color: white;
-                }
 
                 .retro-table tr:hover td {
                     color: white;

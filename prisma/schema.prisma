@@ -16,6 +16,7 @@ model User {
   image         String?
   role          String    @default("USER") // "ADMIN" | "USER"
   approved      Boolean   @default(false)
+  credits       Int       @default(50)
   creations     Creation[]
   savedPrompts  PromptTemplate[]
   createdAt     DateTime  @default(now())
