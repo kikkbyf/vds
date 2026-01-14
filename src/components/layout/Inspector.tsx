@@ -177,6 +177,7 @@ export default function Inspector() {
                         className={`toggle-btn ${viewMode === 'textured' ? 'active' : ''}`}
                         onClick={() => setViewMode('textured')}
                         title="Show 2D texture on 3D model"
+                        disabled={true}
                     >
                         <Layers size={14} /> 2D-3D Effect
                     </button>
@@ -206,6 +207,7 @@ export default function Inspector() {
                     <button
                         className={`toggle-btn ${subjectType === 'body' ? 'active' : ''}`}
                         onClick={() => setSubjectType('body')}
+                        disabled={true}
                     >
                         Full Body
                     </button>
@@ -216,7 +218,7 @@ export default function Inspector() {
                 <button
                     className="bake-btn"
                     onClick={() => startAnalysis()}
-                    disabled={isAnalyzing}
+                    disabled={true}
                     style={{
                         borderColor: 'var(--accent-blue)',
                         color: 'var(--accent-blue)',
@@ -581,6 +583,10 @@ export default function Inspector() {
         .toggle-btn.active {
             background: var(--accent-blue);
             color: white;
+        }
+        .toggle-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         .thumbnail-container {
