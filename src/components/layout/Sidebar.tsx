@@ -1,14 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, Image as ImageIcon, LogOut, User } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
 
     const isActive = (path: string) => pathname === path;
+
+    const handleLogout = async () => {
+        await signOut({ redirect: false });
+        router.replace('/login');
+    };
 
     return (
         <aside className="sidebar">
@@ -22,7 +28,7 @@ export default function Sidebar() {
             </div>
 
             <div className="sidebar-bottom">
-                <button className="nav-item" onClick={() => signOut({ callbackUrl: '/login' })} title="Sign Out">
+                <button className="nav-item" onClick={handleLogout} title="Sign Out">
                     <LogOut size={20} />
                 </button>
             </div>
