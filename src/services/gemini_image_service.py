@@ -4,6 +4,7 @@ import mimetypes
 import os
 import json
 import requests
+import time
 from typing import Union, List, Dict, Any
 
 from google import genai
@@ -103,78 +104,103 @@ class GeminiImageService:
         )
 
     async def _run_generation(self, prompt: str, images: List[Union[str, bytes]], aspect_ratio: str, image_size: str) -> GeminiBananaProImageOutput:
-        try:
-            logger.info(f"Generating image with {self.model} (Native {image_size})...")
-            
-            # 1. Build Payload
-            parts = [{"text": prompt}]
-            if images:
-                for img in images:
-                    parts.append(self._construct_part_dict(img))
-            
-            payload = {
-                "contents": [{
-                    "role": "user",
-                    "parts": parts
-                }],
-                "generationConfig": {
-                    "responseModalities": ["IMAGE"],
-                    "imageConfig": {
-                        "aspectRatio": aspect_ratio,
-                        "imageSize": image_size # Native 2K/4K support
+        max_retries = 3
+        retry_delay = 2  # base delay in seconds
+        
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"Generating image with {self.model} (Native {image_size})... Attempt {attempt + 1}")
+                
+                # 1. Build Payload
+                parts = [{"text": prompt}]
+                if images:
+                    for img in images:
+                        parts.append(self._construct_part_dict(img))
+                
+                payload = {
+                    "contents": [{
+                        "role": "user",
+                        "parts": parts
+                    }],
+                    "generationConfig": {
+                        "responseModalities": ["IMAGE"],
+                        "imageConfig": {
+                            "aspectRatio": aspect_ratio,
+                            "imageSize": image_size # Native 2K/4K support
+                        }
                     }
                 }
-            }
 
-            # 2. Send Request
-            url = f"https://aiplatform.googleapis.com/v1beta1/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model}:generateContent"
-            
-            # Using synchronous requests in async ref wrapper is acceptable here given simple usage
-            # ideally use run_in_executor but this is fine for now.
-            response = requests.post(url, headers=self._get_headers(), json=payload, timeout=600)
+                # 2. Send Request
+                url = f"https://aiplatform.googleapis.com/v1beta1/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model}:generateContent"
+                
+                response = requests.post(url, headers=self._get_headers(), json=payload, timeout=600)
 
-            if response.status_code != 200:
-                raise ValueError(f"API Error {response.status_code}: {response.text}")
+                if response.status_code == 429:
+                    if attempt < max_retries:
+                        sleep_time = retry_delay * (2 ** attempt)
+                        logger.warning(f"API Rate Limit (429) hit. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
+                        time.sleep(sleep_time)
+                        continue
+                    else:
+                        raise ValueError(f"API Error 429: Resource exhausted after {max_retries} retries.")
 
-            # 3. Parse Response
-            rjson = response.json()
-            image_bytes = None
-            
-            # Navigation: candidates[0].content.parts[0].inlineData.data
-            candidates = rjson.get("candidates", [])
-            for cand in candidates:
-                content = cand.get("content", {})
-                c_parts = content.get("parts", [])
-                for part in c_parts:
-                    inline = part.get("inlineData", {})
-                    if "data" in inline:
-                        image_bytes = base64.b64decode(inline["data"])
-                        break
-                if image_bytes: break
+                if response.status_code != 200:
+                    raise ValueError(f"API Error {response.status_code}: {response.text}")
 
-            if not image_bytes:
-                raise ValueError("No image data found in response")
+                # 3. Parse Response
+                rjson = response.json()
+                image_bytes = None
+                
+                # Navigation: candidates[0].content.parts[0].inlineData.data
+                candidates = rjson.get("candidates", [])
+                for cand in candidates:
+                    content = cand.get("content", {})
+                    c_parts = content.get("parts", [])
+                    for part in c_parts:
+                        inline = part.get("inlineData", {})
+                        if "data" in inline:
+                            image_bytes = base64.b64decode(inline["data"])
+                            break
+                    if image_bytes: break
 
-            # Debug: Log assets
-            self._log_generation_assets(prompt, images, image_bytes)
+                if not image_bytes:
+                    raise ValueError("No image data found in response")
 
-            return GeminiBananaProImageOutput(
-                success=True,
-                status=200,
-                image_data=image_bytes,
-                prompt=prompt,
-                model=self.model,
-            )
+                # Debug: Log assets
+                self._log_generation_assets(prompt, images, image_bytes)
 
-        except Exception as e:
-            logger.exception("generation failed")
-            return GeminiBananaProImageOutput(
-                success=False,
-                status=500,
-                prompt=prompt,
-                model=self.model,
-                error=str(e),
-            )
+                return GeminiBananaProImageOutput(
+                    success=True,
+                    status=200,
+                    image_data=image_bytes,
+                    prompt=prompt,
+                    model=self.model,
+                )
+
+            except Exception as e:
+                if attempt < max_retries and "429" in str(e):
+                    # Already handled above if it's a direct status_code check, 
+                    # but if it comes from an exception, retry here too.
+                    continue
+                
+                logger.exception(f"generation failed on attempt {attempt + 1}")
+                if attempt == max_retries:
+                    return GeminiBananaProImageOutput(
+                        success=False,
+                        status=500,
+                        prompt=prompt,
+                        model=self.model,
+                        error=str(e),
+                    )
+        
+        return GeminiBananaProImageOutput(
+            success=False,
+            status=500,
+            prompt=prompt,
+            model=self.model,
+            error="Unexpected generation failure after retries",
+        )
 
     def _log_generation_assets(self, prompt: str, images: List[Union[str, bytes]], output_bytes: bytes):
         """Debug Utility: Save generation assets to local disk for inspection."""

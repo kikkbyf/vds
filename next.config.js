@@ -8,6 +8,7 @@ const nextConfig = {
         serverActions: {
             bodySizeLimit: '50mb',
         },
+        middlewareClientMaxBodySize: '50mb',
     },
     // Required for @imgly/background-removal to load WASM/Workers correctly
     headers: async () => {

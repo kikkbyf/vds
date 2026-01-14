@@ -37,8 +37,8 @@ export async function saveImageToStorage(base64Data: string): Promise<string> {
         throw writeErr;
     }
 
-    // 4. Return public URL
-    return `/uploads/${filename}`;
+    // 4. Return public URL (Served via Dynamic API Route /api/uploads/[filename])
+    return `/api/uploads/${filename}`;
 }
 
 export async function saveInputImageToStorage(urlOrBase64: string): Promise<string> {

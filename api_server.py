@@ -114,7 +114,7 @@ async def generate_image(request: GenerateRequest):
                 os.makedirs(req_dir, exist_ok=True)
 
                 # 2. Save Prompt & Metadata
-                metadata = request.dict()
+                metadata = request.model_dump()
                 # Remove large data from metadata if present (though images are separate strings)
                 # metadata['images'] = [f"<base64_len_{len(x)}>" for x in (metadata.get('images') or [])]
                 # metadata['image_url'] = "..." # Deprecated

@@ -34,6 +34,15 @@ export default function Sidebar() {
         }
 
         if (isAdmin) {
+            const checkPending = async () => {
+                try {
+                    const list = await getPendingUsers();
+                    setPendingCount(list.length);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
             // Initial fetch
             checkPending();
 
@@ -45,15 +54,6 @@ export default function Sidebar() {
             return () => clearInterval(interval);
         }
     }, [session, isAdmin]);
-
-    const checkPending = async () => {
-        try {
-            const list = await getPendingUsers();
-            setPendingCount(list.length);
-        } catch (e) {
-            console.error(e);
-        }
-    };
 
     const handleLogout = async () => {
         await signOut({ redirect: false });
