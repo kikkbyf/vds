@@ -36,14 +36,46 @@ export async function updateUserCredits(userId: string, credits: number) {
     if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
 
     try {
-        await prisma.user.update({
-            where: { id: userId },
-            data: { credits }
-        });
+        const oldUser = await prisma.user.findUnique({ where: { id: userId } });
+        const oldCredits = oldUser?.credits ?? 0;
+        const diff = credits - oldCredits;
+
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: userId },
+                data: { credits }
+            }),
+            prisma.creditLog.create({
+                data: {
+                    userId,
+                    amount: diff,
+                    reason: 'Admin Adjustment'
+                }
+            })
+        ]);
         return { success: true };
     } catch (error) {
         console.error('Failed to update credits:', error);
         return { error: 'Failed to update' };
+    }
+}
+
+export async function getUserLogs(userId: string) {
+    const session = await auth();
+    if (session?.user?.role !== 'ADMIN') {
+        // Users can see their own logs
+        if (session?.user?.id !== userId) return [];
+    }
+
+    try {
+        const logs = await prisma.creditLog.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+        return logs;
+    } catch (e) {
+        return [];
     }
 }
 

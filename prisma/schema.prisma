@@ -19,8 +19,18 @@ model User {
   credits       Int       @default(50)
   creations     Creation[]
   savedPrompts  PromptTemplate[]
+  creditLogs    CreditLog[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model CreditLog {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  amount        Int       // Positive (Add) or Negative (Spend)
+  reason        String    // e.g. "Generation 4K", "Admin Adjustment"
+  createdAt     DateTime  @default(now())
 }
 
 model Creation {

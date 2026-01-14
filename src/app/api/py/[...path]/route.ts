@@ -54,11 +54,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
             }
 
             // Deduct (Optimistic)
-            await prisma.user.update({
-                where: { id: userId },
-                data: { credits: { decrement: cost } }
-            });
-            console.log(`[Billing] Deducted ${cost} credits from ${userId}. Size: ${size}`);
+            await prisma.$transaction([
+                prisma.user.update({
+                    where: { id: userId },
+                    data: { credits: { decrement: cost } }
+                }),
+                prisma.creditLog.create({
+                    data: {
+                        userId: userId,
+                        amount: -cost,
+                        reason: `Generation ${size}`
+                    }
+                })
+            ]);
+            console.log(`[Billing] Deducted ${cost} credits from ${userId} for ${size}`);
 
         } catch (error) {
             console.error('[Billing] Error processing billing:', error);
@@ -78,10 +87,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         if (!backendResponse.ok) {
             // --- REFUND ON FAILURE ---
             if (shouldBill && userId && cost > 0) {
-                await prisma.user.update({
-                    where: { id: userId },
-                    data: { credits: { increment: cost } }
-                });
+                await prisma.$transaction([
+                    prisma.user.update({
+                        where: { id: userId },
+                        data: { credits: { increment: cost } }
+                    }),
+                    prisma.creditLog.create({
+                        data: {
+                            userId: userId,
+                            amount: cost,
+                            reason: `Refund: Backend Failure (${backendResponse.status})`
+                        }
+                    })
+                ]);
                 console.log(`[Billing] Refunded ${cost} credits to ${userId} due to backend failure.`);
             }
             // -------------------------
@@ -100,10 +118,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
     } catch (error) {
         // --- REFUND ON NETWORK ERROR ---
         if (shouldBill && userId && cost > 0) {
-            await prisma.user.update({
-                where: { id: userId },
-                data: { credits: { increment: cost } }
-            });
+            await prisma.$transaction([
+                prisma.user.update({
+                    where: { id: userId },
+                    data: { credits: { increment: cost } }
+                }),
+                prisma.creditLog.create({
+                    data: {
+                        userId: userId,
+                        amount: cost,
+                        reason: 'Refund: Network Error'
+                    }
+                })
+            ]);
             console.log(`[Billing] Refunded ${cost} credits to ${userId} due to network error.`);
         }
         // -------------------------

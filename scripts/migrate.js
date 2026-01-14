@@ -55,6 +55,9 @@ async function runMigration(version) {
         case 2:
             await migrationV2_InitCredits();
             break;
+        case 3:
+            console.log('-> V3: CreditLogs table creation handled by schema push.');
+            break;
         default:
             console.warn(`No logic defined for v${version}`);
     }
