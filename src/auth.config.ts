@@ -7,14 +7,17 @@ export const authConfig = {
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
-            const validPaths = ['/library', '/api/upload']; // Protected Users
-            const isProtected = validPaths.some(path => nextUrl.pathname.startsWith(path));
 
-            if (isProtected) {
-                if (isLoggedIn) return true;
-                return false; // Redirect unauthenticated users to login page
-            }
-            return true;
+            // Allow access to login page
+            if (nextUrl.pathname.startsWith('/login')) return true;
+
+            // Allow access to registration API (if any public ones exist)
+            // But generally, protect everything else including root '/'
+
+            if (isLoggedIn) return true;
+
+            // Redirect unauthenticated users to login page
+            return false;
         },
         session({ session, token }) {
             if (session.user && token?.sub) {
