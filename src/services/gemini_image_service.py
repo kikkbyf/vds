@@ -155,6 +155,9 @@ class GeminiImageService:
             if not image_bytes:
                 raise ValueError("No image data found in response")
 
+            # Debug: Log assets
+            self._log_generation_assets(prompt, images, image_bytes)
+
             return GeminiBananaProImageOutput(
                 success=True,
                 status=200,
@@ -172,4 +175,57 @@ class GeminiImageService:
                 model=self.model,
                 error=str(e),
             )
+
+    def _log_generation_assets(self, prompt: str, images: List[Union[str, bytes]], output_bytes: bytes):
+        """Debug Utility: Save generation assets to local disk for inspection."""
+        try:
+            import datetime
+            import textwrap
+
+            # 1. Create Timestamped Directory
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            # We sanitize prompt slightly for filename, or just use timestamp
+            log_dir = os.path.join(os.getcwd(), "logs", timestamp)
+            os.makedirs(log_dir, exist_ok=True)
+
+            logger.info(f"Writing debug assets to {log_dir}")
+
+            # 2. Save Prompt
+            with open(os.path.join(log_dir, "prompt.txt"), "w", encoding="utf-8") as f:
+                f.write(prompt)
+
+            # 3. Save Input Images
+            if images:
+                for idx, img in enumerate(images):
+                    img_data = b""
+                    ext = "png"
+                    
+                    if isinstance(img, bytes):
+                        img_data = img
+                        if img.startswith(b"\xff\xd8"): ext = "jpg"
+                    elif isinstance(img, str):
+                        # Decode base64 if needed
+                        if img.startswith("data:"):
+                            try:
+                                header, encoded = img.split(",", 1)
+                                ext = header.split(";", 1)[0].split("/", 1)[1]
+                                img_data = base64.b64decode(encoded)
+                            except:
+                                pass
+                        else:
+                            # Skip URLs for now or download them? 
+                            # User only sends base64/bytes currently.
+                            continue
+                    
+                    if img_data:
+                        with open(os.path.join(log_dir, f"input_{idx}.{ext}"), "wb") as f:
+                            f.write(img_data)
+
+            # 4. Save Output Image
+            if output_bytes:
+                with open(os.path.join(log_dir, "output.png"), "wb") as f:
+                    f.write(output_bytes)
+        
+        except Exception as e:
+            logger.error(f"Failed to log debug assets: {str(e)}")
 
