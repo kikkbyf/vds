@@ -131,7 +131,7 @@ class GeminiImageService:
             
             # Using synchronous requests in async ref wrapper is acceptable here given simple usage
             # ideally use run_in_executor but this is fine for now.
-            response = requests.post(url, headers=self._get_headers(), json=payload, timeout=120)
+            response = requests.post(url, headers=self._get_headers(), json=payload, timeout=600)
 
             if response.status_code != 200:
                 raise ValueError(f"API Error {response.status_code}: {response.text}")
