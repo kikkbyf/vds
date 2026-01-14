@@ -120,7 +120,7 @@ async def generate_image(request: GenerateRequest):
                 # metadata['image_url'] = "..." # Deprecated
                 
                 with open(os.path.join(req_dir, "prompt.json"), "w", encoding="utf-8") as f:
-                    json.dump(metadata, f, indent=2, default=str)
+                    json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
 
                 # 3. Save Input Images
                 for idx, img_bytes in enumerate(image_inputs):

@@ -36,6 +36,12 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                         };
                     }
 
+                    // Ensure email and password are defined for non-dev bypass attempts
+                    if (typeof email !== 'string' || typeof password !== 'string') {
+                        console.log('Invalid credentials: Email or password missing.');
+                        return null;
+                    }
+
                     const user = await prisma.user.findUnique({ where: { email } });
                     if (!user) return null;
 
