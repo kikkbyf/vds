@@ -27,7 +27,7 @@ model User {
 model CreditLog {
   id            String    @id @default(cuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount        Int       // Positive (Add) or Negative (Spend)
   reason        String    // e.g. "Generation 4K", "Admin Adjustment"
   createdAt     DateTime  @default(now())
@@ -36,7 +36,7 @@ model CreditLog {
 model Creation {
   id            String    @id @default(cuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Generation Parameters (Snapshot for Remix)
   prompt        String
@@ -59,7 +59,7 @@ model Creation {
 model PromptTemplate {
   id            String    @id @default(cuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   content       String    // The actual prompt text
   createdAt     DateTime  @default(now())
