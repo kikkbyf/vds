@@ -27,14 +27,8 @@ const nextConfig = {
             },
         ];
     },
-    async rewrites() {
-        return [
-            {
-                source: '/api/py/:path*',
-                destination: 'http://127.0.0.1:8000/:path*',
-            },
-        ];
-    },
+    // Rewrites removed in favor of Route Handler Proxy src/app/api/py/[...path]/route.ts
+    // to handle timeouts and large bodies better.
 };
 
 module.exports = nextConfig;

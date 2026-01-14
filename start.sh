@@ -13,6 +13,10 @@ fi
 echo "Syncing Database Schema..."
 npx prisma db push
 
+# Auto-create Admin User (Safe to run multiple times, it uses upsert)
+echo "Ensuring Admin User Exists..."
+node scripts/create-admin.js "yifan.bu17@gmail.com" "kikk9229"
+
 # Start Backend in background
 echo "Starting Python Backend..."
 /opt/venv/bin/python3 api_server.py &

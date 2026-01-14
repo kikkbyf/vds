@@ -5,35 +5,37 @@ import { useStudioStore } from '@/store/useStudioStore';
 import { Loader2, Download } from 'lucide-react';
 
 export default function RenderView() {
-    const { generatedImage, isGenerating } = useStudioStore();
+  const { generatedImage, isGenerating } = useStudioStore();
 
-    return (
-        <div className="render-container">
-            {isGenerating ? (
-                <div className="loading-state">
-                    <Loader2 className="animate-spin" size={32} color="var(--accent-blue)" />
-                    <p>Synthesizing...</p>
-                </div>
-            ) : generatedImage ? (
-                <div className="result-view">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={generatedImage} alt="Rendered Result" />
-                    <div className="overlay-actions">
-                        <button className="action-btn download"><Download size={16} /></button>
-                    </div>
-                </div>
-            ) : (
-                <div className="placeholder-text">Waiting for input...</div>
-            )}
+  return (
+    <div className="render-container">
+      {isGenerating ? (
+        <div className="loading-state">
+          <Loader2 className="animate-spin" size={32} color="var(--accent-blue)" />
+          <p>Synthesizing...</p>
+        </div>
+      ) : generatedImage ? (
+        <div className="result-view">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={generatedImage} alt="Rendered Result" />
+          <div className="overlay-actions">
+            <button className="action-btn download"><Download size={16} /></button>
+          </div>
+        </div>
+      ) : (
+        <div className="placeholder-text">Waiting for input...</div>
+      )}
 
-            <style jsx>{`
+      <style jsx>{`
         .render-container {
           width: 100%;
           height: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          position: relative;
         }
         .loading-state {
           display: flex;
@@ -65,6 +67,6 @@ export default function RenderView() {
             font-size: 12px;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

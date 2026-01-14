@@ -100,7 +100,7 @@ export default function Viewport3D() {
     const viewMode = useStudioStore((state) => state.viewMode);
 
     return (
-        <div style={{ width: '100%', height: '100%' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
             <Canvas
                 camera={{ position: [0, 0, 8], fov: 45 }}
                 gl={{ preserveDrawingBuffer: true }} // Important for screenshot capture!
