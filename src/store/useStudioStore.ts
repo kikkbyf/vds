@@ -259,6 +259,8 @@ export const useStudioStore = create<StudioState>()(
                                 outputImage: data.image_data // Pass output base64
                             }).catch(err => console.error("Auto-save failed", err));
                         });
+                    } else {
+                        throw new Error('API returned success but no image data found.');
                     }
                 } catch (error) {
                     console.error("Generation failed:", error);

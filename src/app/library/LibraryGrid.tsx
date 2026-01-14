@@ -75,21 +75,35 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
     }
 
     return (
-        <div className="grid">
+        <div className="masonry-container">
             {creations.map((creation) => (
-                <CreationCard
-                    key={creation.id}
-                    item={creation}
-                    onRemix={handleRemix}
-                />
+                <div key={creation.id} className="masonry-item">
+                    <CreationCard
+                        item={creation}
+                        onRemix={handleRemix}
+                    />
+                </div>
             ))}
 
             <style jsx>{`
-                .grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-                    gap: 20px;
+                .masonry-container {
                     padding: 24px;
+                    column-count: 4;
+                    column-gap: 20px;
+                }
+                .masonry-item {
+                    break-inside: avoid;
+                    margin-bottom: 20px;
+                }
+                
+                @media (max-width: 1400px) {
+                    .masonry-container { column-count: 3; }
+                }
+                @media (max-width: 1000px) {
+                    .masonry-container { column-count: 2; }
+                }
+                @media (max-width: 600px) {
+                    .masonry-container { column-count: 1; }
                 }
             `}</style>
         </div>

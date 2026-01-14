@@ -105,129 +105,135 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
 
     return createPortal(
         <div className="admin-overlay">
-            <div className="window retro-window">
-                <div className="window-title-bar">
-                    <div className="title">System Administrator {viewLogsId ? '- Transaction Logs' : ''}</div>
+            <div className="modern-window">
+                <div className="window-header">
+                    <h2 className="title">System Administrator {viewLogsId ? '- Transaction Logs' : ''}</h2>
                     <button className="close-btn" onClick={onClose}>
-                        <X size={14} />
+                        <X size={18} />
                     </button>
                 </div>
                 <div className="window-content">
-                    <div className="content-inner">
-                        {viewLogsId ? (
-                            // LOG VIEW
-                            <div className="log-view">
-                                <button className="back-btn" onClick={() => setViewLogsId(null)}>
-                                    <ArrowLeft size={16} /> Back to Users
-                                </button>
-                                {logsLoading ? <p>Loading logs...</p> : (
-                                    <table className="retro-table">
+                    {viewLogsId ? (
+                        // LOG VIEW
+                        <div className="log-view">
+                            <button className="back-btn" onClick={() => setViewLogsId(null)}>
+                                <ArrowLeft size={16} /> Back to Users
+                            </button>
+                            {logsLoading ? <div className="loading">Loading logs...</div> : (
+                                <table className="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>Action</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {logs.map(log => (
+                                            <tr key={log.id}>
+                                                <td>{new Date(log.createdAt).toLocaleString()}</td>
+                                                <td>{log.reason}</td>
+                                                <td style={{ color: log.amount >= 0 ? 'var(--accent-green)' : '#ef4444' }}>
+                                                    {log.amount > 0 ? '+' : ''}{log.amount}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {logs.length === 0 && <tr><td colSpan={3} className="empty-cell">No transactions found.</td></tr>}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    ) : (
+                        // USER LIST VIEW
+                        <>
+                            <div className="toolbar">
+                                <div className="stats">
+                                    <span className="label">Total Users:</span>
+                                    <span className="value">{users.length}</span>
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Search email..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="search-input"
+                                />
+                            </div>
+                            {loading ? (
+                                <div className="loading">Loading database...</div>
+                            ) : (
+                                <div className="table-container">
+                                    <table className="modern-table">
                                         <thead>
                                             <tr>
-                                                <th>Time</th>
-                                                <th>Action</th>
-                                                <th>Amount</th>
+                                                <th>Email</th>
+                                                <th>Role</th>
+                                                <th>Status</th>
+                                                <th>Credits</th>
+                                                <th>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {logs.map(log => (
-                                                <tr key={log.id}>
-                                                    <td>{new Date(log.createdAt).toLocaleString()}</td>
-                                                    <td>{log.reason}</td>
-                                                    <td style={{ color: log.amount >= 0 ? 'green' : 'red' }}>
-                                                        {log.amount > 0 ? '+' : ''}{log.amount}
+                                            {filteredUsers.map(u => (
+                                                <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
+                                                    <td>{u.email}</td>
+                                                    <td>
+                                                        <span className={`role-badge ${u.role === 'ADMIN' ? 'admin' : ''}`}>
+                                                            {u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {u.approved ?
+                                                            <span className="status-dot active" title="Active"></span> :
+                                                            <span className="status-dot pending" title="Pending Approval"></span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        {editCreditsId === u.id ? (
+                                                            <div className="credit-edit">
+                                                                <input
+                                                                    type="number"
+                                                                    value={tempCredits}
+                                                                    onChange={e => setTempCredits(Number(e.target.value))}
+                                                                    className="mini-input"
+                                                                    autoFocus
+                                                                />
+                                                                <button onClick={() => saveCredits(u.id)} className="icon-btn save">
+                                                                    <Check size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="credit-display" onClick={() => startEditCredits(u)}>
+                                                                <Coins size={14} className="icon" />
+                                                                <span>{u.credits ?? 0}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="actions">
+                                                        <button
+                                                            className="action-btn"
+                                                            onClick={() => loadLogs(u.id)}
+                                                            title="View History"
+                                                        >
+                                                            <BookOpen size={14} />
+                                                        </button>
+                                                        {!u.approved && (
+                                                            <button className="action-btn approve" onClick={() => handleApprove(u.id)} title="Approve">
+                                                                <Check size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button className="action-btn delete" onClick={() => handleReject(u.id)} title="Delete User">
+                                                            <Trash2 size={14} />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {logs.length === 0 && <tr><td colSpan={3}>No transactions found.</td></tr>}
                                         </tbody>
                                     </table>
-                                )}
-                            </div>
-                        ) : (
-                            // USER LIST VIEW
-                            <>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3>User Database</h3>
-                                    <input
-                                        type="text"
-                                        placeholder="Search email..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="search-input"
-                                    />
                                 </div>
-                                {loading ? (
-                                    <p>Loading...</p>
-                                ) : (
-                                    <div className="table-container">
-                                        <table className="retro-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Email</th>
-                                                    <th>Role</th>
-                                                    <th>Status</th>
-                                                    <th>Credits</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {filteredUsers.map(u => (
-                                                    <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
-                                                        <td>{u.email}</td>
-                                                        <td>{u.role}</td>
-                                                        <td>
-                                                            {u.approved ?
-                                                                <span className="badge success">Active</span> :
-                                                                <span className="badge warning">Pending</span>
-                                                            }
-                                                        </td>
-                                                        <td>
-                                                            {editCreditsId === u.id ? (
-                                                                <div className="flex items-center gap-1">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={tempCredits}
-                                                                        onChange={e => setTempCredits(Number(e.target.value))}
-                                                                        className="credit-input"
-                                                                    />
-                                                                    <button onClick={() => saveCredits(u.id)} className="icon-btn save">
-                                                                        <Check size={14} />
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2 cursor-pointer hover:text-blue-400" onClick={() => startEditCredits(u)}>
-                                                                    <Coins size={14} className="text-yellow-500" />
-                                                                    <span>{u.credits ?? 0}</span>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="actions">
-                                                            <button
-                                                                className="retro-btn sm info"
-                                                                onClick={() => loadLogs(u.id)}
-                                                                title="View History"
-                                                            >
-                                                                <BookOpen size={14} />
-                                                            </button>
-                                                            {!u.approved && (
-                                                                <button className="retro-btn sm approve" onClick={() => handleApprove(u.id)}>
-                                                                    Approve
-                                                                </button>
-                                                            )}
-                                                            <button className="retro-btn sm reject" onClick={() => handleReject(u.id)}>
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -238,134 +244,241 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                     left: 0;
                     width: 100vw;
                     height: 100vh;
-                    background: rgba(0, 0, 0, 0.6);
-                    backdrop-filter: blur(2px);
+                    background: rgba(0, 0, 0, 0.75);
+                    backdrop-filter: blur(4px);
                     z-index: 9999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    color: var(--text-primary);
                 }
-                .window {
-                    width: 800px;
-                    max-width: 90vw;
-                    background: #c0c0c0;
-                    border: 2px solid white;
-                    border-right-color: #404040;
-                    border-bottom-color: #404040;
-                    box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+                .modern-window {
+                    width: 900px;
+                    max-width: 95vw;
+                    height: 600px;
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-color);
+                    border-radius: 8px;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
                     display: flex;
                     flex-direction: column;
+                    overflow: hidden;
                 }
-                .window-title-bar {
-                    background: #000080;
-                    color: white;
-                    padding: 4px 8px;
+                .window-header {
+                    padding: 16px 20px;
+                    border-bottom: 1px solid var(--border-color);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    font-weight: bold;
-                    font-family: 'Courier New', monospace;
+                    background: var(--bg-panel-header);
+                }
+                .title {
+                    margin: 0;
+                    font-size: 16px;
+                    font-weight: 600;
+                    letter-spacing: -0.01em;
                 }
                 .close-btn {
-                    background: #c0c0c0;
-                    border: 1px solid white;
-                    border-right-color: #404040;
-                    border-bottom-color: #404040;
-                    width: 20px;
-                    height: 20px;
+                    background: transparent;
+                    border: none;
+                    color: var(--text-secondary);
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 4px;
+                    transition: all 0.2s;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    cursor: pointer;
                 }
-                .close-btn:active {
-                    border: 1px solid #404040;
-                    border-right-color: white;
-                    border-bottom-color: white;
+                .close-btn:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: var(--text-primary);
                 }
                 .window-content {
-                    padding: 16px;
-                    font-family: 'Courier New', monospace;
-                }
-                .content-inner {
-                    background: white;
-                    border: 2px solid #404040;
-                    border-right-color: white;
-                    border-bottom-color: white;
-                    padding: 16px;
-                    height: 500px;
+                    flex: 1;
+                    padding: 20px;
                     overflow-y: auto;
-                }
-                h3 { margin: 0; }
-                
-                .retro-table tr:hover td {
-                    background: #000080;
-                    color: white;
+                    display: flex;
+                    flex-direction: column;
                 }
                 
-                .retro-table { width: 100%; border-collapse: collapse; }
-                .retro-table th { text-align: left; border-bottom: 2px solid #000; padding: 8px; position: sticky; top: 0; background: white; }
-                .retro-table td { padding: 8px; border-bottom: 1px solid #eee; }
-                .pending-row { background: #fffbe6; }
-                .pending-row:hover td { color: white; background: #b45309; }
-                
-                .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; border: 1px solid #000; }
-                .badge.success { background: #86efac; color: black; }
-                .badge.warning { background: #fde047; color: black; }
-                
-                .retro-btn {
-                    border: 2px solid white;
-                    border-right-color: #404040;
-                    border-bottom-color: #404040;
-                    background: #c0c0c0;
-                    padding: 4px 8px;
+                .toolbar {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                }
+                .stats {
+                    display: flex;
+                    gap: 8px;
+                    font-size: 13px;
+                    color: var(--text-secondary);
+                }
+                .stats .value {
+                    color: var(--text-primary);
+                    font-weight: 600;
+                }
+                .search-input {
+                    background: var(--control-bg);
+                    border: 1px solid var(--border-color);
+                    color: var(--text-primary);
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    width: 240px;
+                    outline: none;
+                    transition: border-color 0.2s;
+                }
+                .search-input:focus {
+                    border-color: var(--accent-blue);
+                }
+
+                .table-container {
+                    flex: 1;
+                    overflow-y: auto;
+                    border: 1px solid var(--border-color);
+                    border-radius: 6px;
+                }
+                .modern-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 13px;
+                }
+                .modern-table th {
+                    text-align: left;
+                    padding: 12px 16px;
+                    border-bottom: 1px solid var(--border-color);
+                    background: var(--bg-panel-header);
+                    color: var(--text-secondary);
+                    font-weight: 500;
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
+                }
+                .modern-table td {
+                    padding: 12px 16px;
+                    border-bottom: 1px solid var(--border-color);
+                    color: var(--text-primary);
+                }
+                .modern-table tr:last-child td {
+                    border-bottom: none;
+                }
+                .modern-table tr:hover td {
+                    background: var(--control-hover);
+                }
+
+                .pending-row td {
+                    background: rgba(234, 179, 8, 0.1); 
+                }
+                .pending-row:hover td {
+                    background: rgba(234, 179, 8, 0.15);
+                }
+
+                .role-badge {
+                    font-size: 11px;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    background: var(--control-bg);
+                    color: var(--text-secondary);
+                    border: 1px solid var(--border-color);
+                }
+                .role-badge.admin {
+                    background: rgba(59, 130, 246, 0.15);
+                    color: var(--accent-blue);
+                    border-color: rgba(59, 130, 246, 0.3);
+                }
+
+                .status-dot {
+                    display: inline-block;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                }
+                .status-dot.active { background: var(--accent-green); box-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
+                .status-dot.pending { background: #eab308; }
+
+                .credit-display {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
                     cursor: pointer;
-                    font-family: inherit;
+                    color: #fbbf24;
+                    font-weight: 500;
+                    transition: opacity 0.2s;
+                }
+                .credit-display:hover { opacity: 0.8; }
+                
+                .credit-edit {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .mini-input {
+                    background: var(--bg-app);
+                    border: 1px solid var(--accent-blue);
+                    color: var(--text-primary);
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    width: 60px;
+                    font-size: 13px;
+                }
+                .icon-btn {
+                    border: none;
+                    background: transparent;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4px;
+                    border-radius: 4px;
+                }
+                .icon-btn.save { color: var(--accent-green); }
+                .icon-btn.save:hover { background: rgba(16, 185, 129, 0.1); }
+
+                .actions {
+                    display: flex;
+                    gap: 4px;
+                }
+                .action-btn {
+                    border: none;
+                    background: transparent;
+                    color: var(--text-secondary);
+                    cursor: pointer;
+                    padding: 6px;
+                    border-radius: 4px;
+                    transition: all 0.2s;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
-                .retro-btn:active {
-                    border: 2px solid #404040;
-                    border-right-color: white;
-                    border-bottom-color: white;
+                .action-btn:hover {
+                    background: var(--control-bg);
+                    color: var(--text-primary);
                 }
-                .actions { display: flex; gap: 8px; }
-                .retro-btn.approve { background: #86efac; }
-                .retro-btn.reject { background: #fca5a5; }
-                .retro-btn.info { background: #93c5fd; }
-                
-                .credit-input {
-                    width: 60px;
-                    padding: 2px;
-                    border: 1px solid #000;
-                }
-                .icon-btn.save {
-                    background: none;
-                    border: none;
-                    color: green;
-                    cursor: pointer;
-                }
-                .search-input {
-                    padding: 4px 8px;
-                    border: 2px solid #fff;
-                    border-right-color: #404040;
-                    border-bottom-color: #404040;
-                    background: #fff;
-                    font-family: inherit;
-                    width: 200px;
-                }
-                
+                .action-btn.approve { color: var(--accent-green); }
+                .action-btn.approve:hover { background: rgba(16, 185, 129, 0.1); }
+                .action-btn.delete { color: #f87171; }
+                .action-btn.delete:hover { background: rgba(248, 113, 113, 0.1); }
+
                 .back-btn {
-                    border: none;
-                    background: none;
-                    cursor: pointer;
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    font-weight: bold;
-                    margin-bottom: 12px;
-                    text-decoration: underline;
+                    background: none;
+                    border: none;
+                    color: var(--text-secondary);
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                    padding: 0;
+                }
+                .back-btn:hover { color: var(--text-primary); }
+
+                .loading, .empty-cell {
+                    text-align: center;
+                    padding: 40px;
+                    color: var(--text-muted);
+                    font-style: italic;
                 }
             `}</style>
         </div>,

@@ -77,12 +77,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
     // --- BILLING LOGIC END ---
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
         const backendResponse = await fetch(backendUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: bodyText,
             cache: 'no-store',
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!backendResponse.ok) {
             // --- REFUND ON FAILURE ---
