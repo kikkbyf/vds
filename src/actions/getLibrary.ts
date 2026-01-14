@@ -21,9 +21,12 @@ export async function getLibrary() {
             },
             include: { user: true } // Optional: include user info so admin knows who made it
         });
-        return creations;
+        return {
+            creations,
+            isAdmin: user?.role === 'ADMIN'
+        };
     } catch (error) {
         console.error('Failed to fetch library:', error);
-        return [];
+        return { creations: [], isAdmin: false };
     }
 }
