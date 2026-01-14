@@ -7,16 +7,28 @@ import { getAllUsers, approveUser, rejectUser, updateUserCredits } from '@/actio
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     const [users, setUsers] = useState<any[]>([]);
+    const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editCreditsId, setEditCreditsId] = useState<string | null>(null);
     const [tempCredits, setTempCredits] = useState<number>(0);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const loadUsers = async () => {
         setLoading(true);
         const list = await getAllUsers();
         setUsers(list);
+        setFilteredUsers(list);
         setLoading(false);
     };
+
+    useEffect(() => {
+        if (!searchTerm) {
+            setFilteredUsers(users);
+        } else {
+            const lower = searchTerm.toLowerCase();
+            setFilteredUsers(users.filter(u => u.email.toLowerCase().includes(lower)));
+        }
+    }, [searchTerm, users]);
 
     useEffect(() => {
         loadUsers();
@@ -57,73 +69,83 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="window-content">
                     <div className="content-inner">
-                        <h3>User Database</h3>
-                        {loading ? (
-                            <p>Loading...</p>
-                        ) : (
-                            <div className="table-container">
-                                <table className="retro-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Email</th>
-                                            <th>Role</th>
-                                            <th>Status</th>
-                                            <th>Credits</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {users.map(u => (
-                                            <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
-                                                <td>{u.email}</td>
-                                                <td>{u.role}</td>
-                                                <td>
-                                                    {u.approved ?
-                                                        <span className="badge success">Active</span> :
-                                                        <span className="badge warning">Pending</span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    {editCreditsId === u.id ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <input
-                                                                type="number"
-                                                                value={tempCredits}
-                                                                onChange={e => setTempCredits(Number(e.target.value))}
-                                                                className="credit-input"
-                                                            />
-                                                            <button onClick={() => saveCredits(u.id)} className="icon-btn save">
-                                                                <Check size={14} />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 cursor-pointer hover:text-blue-400" onClick={() => startEditCredits(u)}>
-                                                            <Coins size={14} className="text-yellow-500" />
-                                                            <span>{u.credits ?? 0}</span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="actions">
-                                                    {!u.approved && (
-                                                        <button className="retro-btn sm approve" onClick={() => handleApprove(u.id)}>
-                                                            Approve
-                                                        </button>
-                                                    )}
-                                                    <button className="retro-btn sm reject" onClick={() => handleReject(u.id)}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                        <div className="content-inner">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3>User Database</h3>
+                                <input
+                                    type="text"
+                                    placeholder="Search email..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="search-input"
+                                />
                             </div>
-                        )}
+                            {loading ? (
+                                <p>Loading...</p>
+                            ) : (
+                                <div className="table-container">
+                                    <table className="retro-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Email</th>
+                                                <th>Role</th>
+                                                <th>Status</th>
+                                                <th>Credits</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredUsers.map(u => (
+                                                <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
+                                                    <td>{u.email}</td>
+                                                    <td>{u.role}</td>
+                                                    <td>
+                                                        {u.approved ?
+                                                            <span className="badge success">Active</span> :
+                                                            <span className="badge warning">Pending</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        {editCreditsId === u.id ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="number"
+                                                                    value={tempCredits}
+                                                                    onChange={e => setTempCredits(Number(e.target.value))}
+                                                                    className="credit-input"
+                                                                />
+                                                                <button onClick={() => saveCredits(u.id)} className="icon-btn save">
+                                                                    <Check size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 cursor-pointer hover:text-blue-400" onClick={() => startEditCredits(u)}>
+                                                                <Coins size={14} className="text-yellow-500" />
+                                                                <span>{u.credits ?? 0}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="actions">
+                                                        {!u.approved && (
+                                                            <button className="retro-btn sm approve" onClick={() => handleApprove(u.id)}>
+                                                                Approve
+                                                            </button>
+                                                        )}
+                                                        <button className="retro-btn sm reject" onClick={() => handleReject(u.id)}>
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <style jsx>{`
+                <style jsx>{`
                 .admin-overlay {
                     position: fixed;
                     top: 0;
@@ -181,8 +203,17 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                 }
                 .content-inner {
                     background: white;
-
+                    border: 2px solid #404040;
+                    border-right-color: white;
+                    border-bottom-color: white;
+                    padding: 16px;
+                    height: 500px;
+                    overflow-y: auto;
+                }
+                h3 { margin: 0; }
+                
                 .retro-table tr:hover td {
+                    background: #000080;
                     color: white;
                 }
 
@@ -218,8 +249,17 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                     color: #008000;
                     font-weight: bold;
                 }
+                .search-input {
+                    padding: 4px 8px;
+                    border: 2px solid #fff;
+                    border-right-color: #404040;
+                    border-bottom-color: #404040;
+                    background: #fff;
+                    font-family: inherit;
+                    width: 200px;
+                }
             `}</style>
-        </div>,
-        document.body
-    );
+            </div>,
+            document.body
+            );
 }
