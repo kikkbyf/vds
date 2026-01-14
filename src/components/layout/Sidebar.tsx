@@ -27,6 +27,15 @@ export default function Sidebar() {
 
     const isActive = (path: string) => pathname === path;
 
+    const checkPending = async () => {
+        try {
+            const list = await getPendingUsers();
+            setPendingCount(list.length);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     useEffect(() => {
         // Fetch credits for everyone
         if (session?.user) {
@@ -34,15 +43,6 @@ export default function Sidebar() {
         }
 
         if (isAdmin) {
-            const checkPending = async () => {
-                try {
-                    const list = await getPendingUsers();
-                    setPendingCount(list.length);
-                } catch (e) {
-                    console.error(e);
-                }
-            };
-
             // Initial fetch
             checkPending();
 
