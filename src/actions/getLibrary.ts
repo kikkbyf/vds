@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 
 export async function getLibrary() {
     const session = await auth();
-    if (!session?.user?.id) return [];
+    if (!session?.user?.id) return { creations: [], isAdmin: false };
 
     try {
         // Check user role
