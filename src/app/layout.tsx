@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'AI-Driven Professional Photography Simulation',
 };
 
+import { Providers } from '@/components/providers/Providers';
+
 export default function RootLayout({
   children,
 }: {
@@ -13,7 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }
