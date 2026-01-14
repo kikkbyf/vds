@@ -33,11 +33,11 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                 <Image
                     src={item.outputImageUrl}
                     alt={item.prompt}
-                    width={0}
-                    height={0}
-                    sizes="100vw"
+                    width={800} // Placeholder width
+                    height={800} // Placeholder height
                     style={{ width: '100%', height: 'auto' }}
                     className="creation-image"
+                    unoptimized={true} // Force straightforward loading for local files
                 />
 
                 <div className="overlay">
