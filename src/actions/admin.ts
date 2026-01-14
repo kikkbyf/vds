@@ -6,8 +6,10 @@ import { auth } from '@/auth';
 export async function getAllUsers() {
     const session = await auth();
     // Only ADMIN can see this
-    if (session?.user?.role !== 'ADMIN') {
-        const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
+    if (!session?.user?.id) return [];
+
+    if (session.user.role !== 'ADMIN') {
+        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
         if (user?.role !== 'ADMIN') return [];
     }
 

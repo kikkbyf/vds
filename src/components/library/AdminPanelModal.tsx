@@ -16,14 +16,24 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     // Log View State
     const [viewLogsId, setViewLogsId] = useState<string | null>(null);
     const [logs, setLogs] = useState<any[]>([]);
-    const [logsLoading, setLogsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadUsers = async () => {
-        setLoading(true);
-        const list = await getAllUsers();
-        setUsers(list);
-        setFilteredUsers(list);
-        setLoading(false);
+        try {
+            setLoading(true);
+            setError(null);
+            const list = await getAllUsers();
+            // Ensure list is an array to prevnt 'map is not a function' if server returns null
+            if (!Array.isArray(list)) throw new Error('Invalid response from server');
+
+            setUsers(list);
+            setFilteredUsers(list);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load users. Please retry.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const loadLogs = async (userId: string) => {
