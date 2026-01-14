@@ -1,15 +1,44 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Home, Image as ImageIcon, LogOut, User } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { Shield } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
+import { getPendingUsers } from '@/actions/admin';
+import dynamic from 'next/dynamic';
+
+const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
 
 export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const { data: session } = useSession();
+
+    const [showAdmin, setShowAdmin] = useState(false);
+    const [pendingCount, setPendingCount] = useState(0);
+
+    const isAdmin = session?.user?.role === 'ADMIN';
 
     const isActive = (path: string) => pathname === path;
+
+    useEffect(() => {
+        if (!isAdmin) return;
+
+        // Initial fetch
+        checkPending();
+
+        // Poll every 30s
+        const interval = setInterval(checkPending, 30000);
+        return () => clearInterval(interval);
+    }, [isAdmin]);
+
+    const checkPending = async () => {
+        try {
+            const list = await getPendingUsers();
+            setPendingCount(list.length);
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     const handleLogout = async () => {
         await signOut({ redirect: false });
@@ -17,63 +46,100 @@ export default function Sidebar() {
     };
 
     return (
-        <aside className="sidebar">
-            <div className="sidebar-top">
-                <Link href="/" className={`nav-item ${isActive('/') ? 'active' : ''}`} title="Studio">
-                    <Home size={20} />
-                </Link>
-                <Link href="/library" className={`nav-item ${isActive('/library') ? 'active' : ''}`} title="My Library">
-                    <ImageIcon size={20} />
-                </Link>
-            </div>
+        <>
+            <aside className="sidebar">
+                <div className="sidebar-top">
+                    <Link href="/" className={`nav-item ${isActive('/') ? 'active' : ''}`} title="Studio">
+                        <Home size={20} />
+                    </Link>
+                    <Link href="/library" className={`nav-item ${isActive('/library') ? 'active' : ''}`} title="My Library">
+                        <ImageIcon size={20} />
+                    </Link>
 
-            <div className="sidebar-bottom">
-                <button className="nav-item" onClick={handleLogout} title="Sign Out">
-                    <LogOut size={20} />
-                </button>
-            </div>
+                    {isAdmin && (
+                        <button
+                            className={`nav-item admin-btn ${showAdmin ? 'active' : ''}`}
+                            onClick={() => setShowAdmin(true)}
+                            title="Admin Approvals"
+                        >
+                            <div className="icon-wrapper">
+                                <Shield size={20} />
+                                {pendingCount > 0 && <span className="badge" />}
+                            </div>
+                        </button>
+                    )}
+                </div>
 
-            <style jsx>{`
-                .sidebar {
-                    grid-area: sidebar;
-                    background: var(--bg-panel);
-                    border-right: 1px solid var(--border-color);
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 12px 0;
-                    width: 50px;
-                }
-                .sidebar-top, .sidebar-bottom {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    align-items: center;
-                }
-                .nav-item {
-                    width: 36px;
-                    height: 36px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 8px;
-                    color: var(--text-secondary);
-                    text-decoration: none;
-                    background: transparent;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .nav-item:hover {
-                    background: var(--bg-panel-header);
-                    color: var(--text-primary);
-                }
-                .nav-item.active {
-                    background: var(--accent-blue);
-                    color: white;
-                }
-            `}</style>
-        </aside>
+                <div className="sidebar-bottom">
+                    <button className="nav-item" onClick={handleLogout} title="Sign Out">
+                        <LogOut size={20} />
+                    </button>
+                </div>
+
+                <style jsx>{`
+                    .sidebar {
+                        grid-area: sidebar;
+                        background: var(--bg-panel);
+                        border-right: 1px solid var(--border-color);
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 12px 0;
+                        width: 50px;
+                    }
+                    .sidebar-top, .sidebar-bottom {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                        align-items: center;
+                    }
+                    .nav-item {
+                        width: 36px;
+                        height: 36px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 8px;
+                        color: var(--text-secondary);
+                        text-decoration: none;
+                        background: transparent;
+                        border: none;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        position: relative;
+                    }
+                    .nav-item:hover {
+                        background: var(--bg-panel-header);
+                        color: var(--text-primary);
+                    }
+                    .nav-item.active {
+                        background: var(--accent-blue);
+                        color: white;
+                    }
+                    .admin-btn {
+                        color: #fca5a5; /* Soft red tint */
+                    }
+                    .admin-btn:hover {
+                        color: #f87171;
+                    }
+                    .icon-wrapper {
+                        position: relative;
+                        display: flex;
+                    }
+                    .badge {
+                        position: absolute;
+                        top: -2px;
+                        right: -2px;
+                        width: 8px;
+                        height: 8px;
+                        background-color: #ef4444; /* Red */
+                        border-radius: 50%;
+                        border: 1px solid var(--bg-panel);
+                    }
+                `}</style>
+            </aside>
+            {showAdmin && <AdminPanelModal onClose={() => { setShowAdmin(false); checkPending(); }} />}
+        </>
     );
 }
