@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Clock, Download } from 'lucide-react';
+import { RefreshCw, Clock, Download, Copy, User as UserIcon } from 'lucide-react';
 import Image from 'next/image';
 
 interface CreationItem {
@@ -9,6 +9,10 @@ interface CreationItem {
     outputImageUrl: string;
     createdAt: Date;
     imageSize?: string;
+    user?: {
+        name: string | null;
+        email: string;
+    } | null;
 }
 
 interface CreationCardProps {
@@ -25,6 +29,12 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const handleCopyPrompt = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(item.prompt);
+        // Optional: toast notification could be added here
     };
 
     return (
@@ -51,7 +61,14 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                             <span>Remix</span>
                         </button>
                         <button
-                            className="action-btn download-btn"
+                            className="action-btn icon-btn"
+                            onClick={handleCopyPrompt}
+                            title="Copy Prompt"
+                        >
+                            <Copy size={14} />
+                        </button>
+                        <button
+                            className="action-btn icon-btn"
                             onClick={handleDownload}
                             title="Download Original"
                         >
@@ -61,6 +78,12 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
 
                     <div className="overlay-info">
                         {item.imageSize && <span className="badge">{item.imageSize}</span>}
+                        {item.user && (
+                            <div className="badge user-badge" title={item.user.email}>
+                                <UserIcon size={10} style={{ marginRight: 4 }} />
+                                {item.user.name || 'User'}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -170,17 +193,23 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                     background: #f0f0f0;
                 }
 
-                .download-btn {
+                .icon-btn {
                     background: rgba(0,0,0,0.6);
                     color: white;
                     width: 36px;
                     justify-content: center;
                     border: 1px solid rgba(255,255,255,0.2);
                 }
-                .download-btn:hover {
-                    background: rgba(0,0,0,0.8);
-                    background-color: white;
+                .icon-btn:hover {
+                    background: white;
                     color: black;
+                }
+                
+                .user-badge {
+                    display: flex;
+                    align-items: center;
+                    background: rgba(59, 130, 246, 0.8); /* Blue tint for user */
+                    border-color: rgba(59, 130, 246, 0.4);
                 }
 
                 .info {

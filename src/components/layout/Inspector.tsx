@@ -58,6 +58,59 @@ export default function Inspector() {
         return () => clearInterval(interval);
     }, [getScreenshot]);
 
+    // --- Paste Handler ---
+    React.useEffect(() => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            const files: File[] = [];
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.startsWith('image/')) {
+                    const file = items[i].getAsFile();
+                    if (file) files.push(file);
+                }
+            }
+
+            if (files.length > 0) {
+                // We need to import removeBackground utility dynamically or here
+                // Note: removeBackground is in @/utils/imageProcessing
+                try {
+                    const { removeBackground } = await import('@/utils/imageProcessing');
+
+                    // Show some global loading state if desired, or just assume async add
+                    for (const file of files) {
+                        // 1. Remove Background / Process
+                        // Mimic logic from ImageUploader: race between AI and 5s timeout
+                        const processPromise = removeBackground(file);
+                        const timeoutPromise = new Promise<string>((resolve) =>
+                            setTimeout(() => resolve(URL.createObjectURL(file)), 5000)
+                        );
+                        const processedUrl = await Promise.race([processPromise, timeoutPromise]);
+
+                        // 2. Blob -> Base64
+                        const response = await fetch(processedUrl);
+                        const blob = await response.blob();
+                        const base64Url = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+
+                        // 3. Add to Store
+                        useStudioStore.getState().addUploadedImage(base64Url);
+                    }
+                } catch (err) {
+                    console.error('Paste upload failed:', err);
+                }
+            }
+        };
+
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+    }, []);
+
     const getCost = () => {
         const size = String(imageSize).toUpperCase();
         if (size.includes('4K')) return 5;
