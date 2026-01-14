@@ -58,6 +58,13 @@ export default function Inspector() {
         return () => clearInterval(interval);
     }, [getScreenshot]);
 
+    const getCost = () => {
+        const size = String(imageSize).toUpperCase();
+        if (size.includes('4K')) return 5;
+        if (size.includes('2K')) return 2;
+        return 1;
+    };
+
     return (
         <div className="inspector">
             <h3>Inspector</h3>
@@ -283,8 +290,11 @@ export default function Inspector() {
                     onClick={() => generateImage()}
                     disabled={isGenerating}
                 >
-                    {isGenerating ? 'Processing...' : 'Bake Angles'}
+                    {isGenerating ? 'Processing...' : `Bake Angles (${getCost()} Credits)`}
                 </button>
+                <div style={{ textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Est. Cost: {getCost()} Credits (Based on {imageSize})
+                </div>
                 <GenerationProgressBar />
             </div>
 

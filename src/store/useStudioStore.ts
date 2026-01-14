@@ -20,6 +20,8 @@ interface StudioState {
     setShotPreset: (val: string) => void;
 
     // Generation
+    credits: number;
+    fetchCredits: () => Promise<void>;
     isGenerating: boolean;
     setIsGenerating: (val: boolean) => void;
     generatedImage: string | null;
@@ -83,6 +85,14 @@ export const useStudioStore = create<StudioState>()(
         (set, get) => ({
             uploadedImages: [],
             depthMapUrl: null,
+
+            credits: 0,
+            fetchCredits: async () => {
+                const { getUserCredits } = await import('@/actions/user');
+                const c = await getUserCredits();
+                set({ credits: c });
+            },
+
             isGenerating: false,
             isExtractingDepth: false,
 
@@ -222,13 +232,16 @@ export const useStudioStore = create<StudioState>()(
                     set({ generationProgress: 95, generationStatus: 'Processing Response...' });
 
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-                        throw new Error(errorData.detail || 'Generation failed');
+                        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                        throw new Error(errorData.error || errorData.detail || 'Generation failed');
                     }
 
                     const data = await response.json();
                     if (data.image_data) {
                         set({ generatedImage: data.image_data, generationProgress: 100, generationStatus: 'Complete' });
+
+                        // Refresh credits immediately
+                        get().fetchCredits();
 
                         // --- Auto-Save to Library ---
                         // We do this asynchronously without awaiting so UI updates immediately

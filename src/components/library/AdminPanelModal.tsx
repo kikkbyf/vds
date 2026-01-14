@@ -6,8 +6,17 @@ import { createPortal } from 'react-dom';
 import { getAllUsers, approveUser, rejectUser, updateUserCredits, getUserLogs } from '@/actions/admin';
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
-    const [users, setUsers] = useState<any[]>([]);
-    const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+    interface User {
+        id: string;
+        email: string;
+        role: string;
+        approved: boolean;
+        credits: number;
+        createdAt: Date | string;
+    }
+
+    const [users, setUsers] = useState<User[]>([]);
+    const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [editCreditsId, setEditCreditsId] = useState<string | null>(null);
     const [tempCredits, setTempCredits] = useState<number>(0);
@@ -16,6 +25,7 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     // Log View State
     const [viewLogsId, setViewLogsId] = useState<string | null>(null);
     const [logs, setLogs] = useState<any[]>([]);
+    const [logsLoading, setLogsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const loadUsers = async () => {
@@ -53,33 +63,45 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
         }
     }, [searchTerm, users]);
 
+    const [mounted, setMounted] = useState(false);
+
     useEffect(() => {
+        setMounted(true);
         loadUsers();
     }, []);
 
     const handleApprove = async (id: string) => {
-        await approveUser(id);
+        const res = await approveUser(id);
+        if (res.error) {
+            alert(res.error);
+        }
         loadUsers();
     };
 
     const handleReject = async (id: string) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
-        await rejectUser(id);
+        const res = await rejectUser(id);
+        if (res.error) {
+            alert(res.error);
+        }
         loadUsers();
     };
 
-    const startEditCredits = (user: any) => {
+    const startEditCredits = (user: User) => {
         setEditCreditsId(user.id);
         setTempCredits(user.credits || 0);
     };
 
     const saveCredits = async (id: string) => {
-        await updateUserCredits(id, tempCredits);
+        const res = await updateUserCredits(id, tempCredits);
+        if (res.error) {
+            alert(res.error);
+        }
         setEditCreditsId(null);
         loadUsers();
     };
 
-    if (typeof document === 'undefined') return null;
+    if (!mounted || typeof document === 'undefined') return null;
 
     return createPortal(
         <div className="admin-overlay">

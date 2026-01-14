@@ -6,7 +6,7 @@ import { Home, Image as ImageIcon, LogOut, Shield, Coins } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { getPendingUsers } from '@/actions/admin';
-import { getUserCredits } from '@/actions/user';
+import { useStudioStore } from '@/store/useStudioStore';
 import dynamic from 'next/dynamic';
 
 const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
@@ -18,7 +18,10 @@ export default function Sidebar() {
 
     const [showAdmin, setShowAdmin] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
-    const [credits, setCredits] = useState(0);
+
+    // Global Store
+    const credits = useStudioStore(s => s.credits);
+    const fetchCredits = useStudioStore(s => s.fetchCredits);
 
     const isAdmin = session?.user?.role === 'ADMIN';
 
@@ -42,11 +45,6 @@ export default function Sidebar() {
             return () => clearInterval(interval);
         }
     }, [session, isAdmin]);
-
-    const fetchCredits = async () => {
-        const c = await getUserCredits();
-        setCredits(c);
-    };
 
     const checkPending = async () => {
         try {

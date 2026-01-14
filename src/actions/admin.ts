@@ -3,17 +3,22 @@
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-export async function getAllUsers() {
+// Helper to check admin role
+async function verifyAdmin() {
     const session = await auth();
-    // Only ADMIN can see this
-    if (!session?.user?.id) return [];
-
-    if (session.user.role !== 'ADMIN') {
-        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-        if (user?.role !== 'ADMIN') return [];
+    if (session?.user?.role !== 'ADMIN') {
+        const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
+        if (user?.role !== 'ADMIN') {
+            throw new Error('Unauthorized: Admin access required');
+        }
     }
+    return true;
+}
 
+export async function getAllUsers() {
     try {
+        await verifyAdmin();
+
         const users = await prisma.user.findMany({
             orderBy: { createdAt: 'desc' },
             select: {
@@ -33,11 +38,9 @@ export async function getAllUsers() {
 }
 
 export async function updateUserCredits(userId: string, credits: number) {
-    const session = await auth();
-    const currentUser = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-    if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
-
     try {
+        await verifyAdmin();
+
         const oldUser = await prisma.user.findUnique({ where: { id: userId } });
         const oldCredits = oldUser?.credits ?? 0;
         const diff = credits - oldCredits;
@@ -56,20 +59,23 @@ export async function updateUserCredits(userId: string, credits: number) {
             })
         ]);
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to update credits:', error);
-        return { error: 'Failed to update' };
+        return { error: error.message || 'Failed to update' };
     }
 }
 
 export async function getUserLogs(userId: string) {
-    const session = await auth();
-    if (session?.user?.role !== 'ADMIN') {
-        // Users can see their own logs
-        if (session?.user?.id !== userId) return [];
-    }
-
     try {
+        // Special case: Admin can see anyone, User can see self
+        const session = await auth();
+        const isSelf = session?.user?.id === userId;
+
+        if (!isSelf) {
+            // If not self, must be admin
+            await verifyAdmin();
+        }
+
         const logs = await prisma.creditLog.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -82,15 +88,9 @@ export async function getUserLogs(userId: string) {
 }
 
 export async function getPendingUsers() {
-    // ... existing logic but maybe we don't need it if getAllUsers exists? 
-    // Let's keep it for the badge count logic, but AdminPanel can switch to consume getAllUsers.
-    const session = await auth();
-    if (session?.user?.role !== 'ADMIN') {
-        const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-        if (user?.role !== 'ADMIN') return [];
-    }
-
     try {
+        await verifyAdmin();
+
         const users = await prisma.user.findMany({
             where: { approved: false },
             orderBy: { createdAt: 'desc' },
@@ -108,35 +108,31 @@ export async function getPendingUsers() {
 }
 
 export async function approveUser(userId: string) {
-    const session = await auth();
-    const currentUser = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-    if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
-
     try {
+        await verifyAdmin();
+
         await prisma.user.update({
             where: { id: userId },
             data: { approved: true }
         });
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to approve user:', error);
-        return { error: 'Failed to approve' };
+        return { error: error.message || 'Failed to approve' };
     }
 }
 
 export async function rejectUser(userId: string) {
-    const session = await auth();
-    const currentUser = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-    if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
-
     try {
+        await verifyAdmin();
+
         // Permanently delete the registration request
         await prisma.user.delete({
             where: { id: userId }
         });
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to reject user:', error);
-        return { error: 'Failed to reject' };
+        return { error: error.message || 'Failed to reject' };
     }
 }
