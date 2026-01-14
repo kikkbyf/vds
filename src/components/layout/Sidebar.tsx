@@ -1,6 +1,5 @@
 'use client';
 
-import { checkStorageDebug } from '@/actions/debugStorage';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Image as ImageIcon, LogOut, Shield, Coins } from 'lucide-react';
@@ -56,12 +55,6 @@ export default function Sidebar() {
         }
     };
 
-    const runDebug = async () => {
-        const result = await checkStorageDebug();
-        console.log('Storage Debug:', result);
-        alert(JSON.stringify(result, null, 2));
-    };
-
     const handleLogout = async () => {
         await signOut({ redirect: false });
         router.replace('/login');
@@ -101,7 +94,6 @@ export default function Sidebar() {
                     <button className="nav-item" onClick={handleLogout} title="Sign Out">
                         <LogOut size={20} />
                     </button>
-                    {isAdmin && <button onClick={runDebug} className="text-[10px] text-gray-500 mt-2" title="Debug Storage">🐞</button>}
                 </div>
 
                 <style jsx>{`
