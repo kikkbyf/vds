@@ -22,7 +22,7 @@ export default function Sidebar() {
             </div>
 
             <div className="sidebar-bottom">
-                <button className="nav-item" onClick={() => signOut()} title="Sign Out">
+                <button className="nav-item" onClick={() => signOut({ callbackUrl: '/login' })} title="Sign Out">
                     <LogOut size={20} />
                 </button>
             </div>
