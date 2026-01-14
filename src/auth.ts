@@ -21,12 +21,8 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                     if (!user) return null;
 
                     if (!user.approved) {
-                        // We can't easily return a custom error message in NextAuth v5 credentials provider 
-                        // without throwing an Error that might be caught generically.
-                        // But returning null typically means "Invalid credentials".
-                        // To be specific, we might print server log.
                         console.log(`Login attempt by unapproved user: ${email}`);
-                        return null;
+                        throw new Error('PendingApproval');
                     }
 
                     const passwordsMatch = await bcrypt.compare(password, user.password);

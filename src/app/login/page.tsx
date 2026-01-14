@@ -31,7 +31,16 @@ export default function LoginPage() {
                 });
 
                 if (res?.error) {
-                    setError('Invalid email or password');
+                    if (res.error.includes('PendingApproval') || res.code === 'PendingApproval') {
+                        setSuccessMsg('true'); // Reuse the "Pending" view
+                        setError('');
+                    } else {
+                        // NextAuth often masks errors as "CredentialsSignin"
+                        // Since we can't easily distinguish without delving into NextAuth internals or server logs,
+                        // If it fails but account exists, user might be confused.
+                        // For now, simpler error. 
+                        setError('Invalid email or password (or account not approved)');
+                    }
                 } else {
                     router.push('/');
                     router.refresh();
