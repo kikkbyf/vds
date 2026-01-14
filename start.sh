@@ -13,6 +13,10 @@ fi
 echo "Syncing Database Schema..."
 npx prisma db push
 
+# Run Data Migrations (Versioning)
+echo "Checking Data Migrations..."
+node scripts/migrate.js
+
 # Auto-create Admin User (Safe to run multiple times, it uses upsert)
 echo "Ensuring Admin User Exists..."
 node scripts/create-admin.js "yifan.bu17@gmail.com" "kikk9229"

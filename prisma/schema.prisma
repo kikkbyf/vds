@@ -53,3 +53,11 @@ model PromptTemplate {
   content       String    // The actual prompt text
   createdAt     DateTime  @default(now())
 }
+  createdAt     DateTime  @default(now())
+}
+
+model SystemConfig {
+  key           String    @id
+  value         String
+  updatedAt     DateTime  @updatedAt
+}
