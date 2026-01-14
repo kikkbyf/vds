@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getPendingUsers, approveUser } from '@/actions/admin';
-import { X, Check } from 'lucide-react';
+import { getPendingUsers, approveUser, rejectUser } from '@/actions/admin';
+import { X, Check, Trash2 } from 'lucide-react';
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     const [users, setUsers] = useState<any[]>([]);
@@ -19,10 +19,15 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     };
 
     const handleApprove = async (userId: string) => {
+        if (!confirm('Approve this user?')) return;
         const res = await approveUser(userId);
-        if (res.success) {
-            loadUsers(); // Refresh list
-        }
+        if (res.success) loadUsers();
+    };
+
+    const handleReject = async (userId: string) => {
+        if (!confirm('Reject and delete this user request?')) return;
+        const res = await rejectUser(userId);
+        if (res.success) loadUsers();
     };
 
     return (
@@ -47,13 +52,22 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                                     <p className="text-white text-sm font-medium">{user.email}</p>
                                     <p className="text-white/30 text-xs">{new Date(user.createdAt).toLocaleDateString()}</p>
                                 </div>
-                                <button
-                                    onClick={() => handleApprove(user.id)}
-                                    className="bg-green-600/20 text-green-400 hover:bg-green-600/30 p-2 rounded transition-colors"
-                                    title="Approve User"
-                                >
-                                    <Check size={16} />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleReject(user.id)}
+                                        className="bg-red-600/20 text-red-400 hover:bg-red-600/30 p-2 rounded transition-colors"
+                                        title="Reject (Delete)"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleApprove(user.id)}
+                                        className="bg-green-600/20 text-green-400 hover:bg-green-600/30 p-2 rounded transition-colors"
+                                        title="Approve User"
+                                    >
+                                        <Check size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}

@@ -6,7 +6,9 @@ import { auth } from '@/auth';
 export async function getPendingUsers() {
     const session = await auth();
     // Only ADMIN can see this
+    // We check via email for the super-admin or via role
     if (session?.user?.email !== 'yifan.bu17@gmail.com' && session?.user?.role !== 'ADMIN') {
+        // Double check DB role to be safe
         const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
         if (user?.role !== 'ADMIN') return [];
     }
@@ -30,7 +32,6 @@ export async function getPendingUsers() {
 
 export async function approveUser(userId: string) {
     const session = await auth();
-    // Security check
     const currentUser = await prisma.user.findUnique({ where: { id: session?.user?.id } });
     if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
 
@@ -43,5 +44,22 @@ export async function approveUser(userId: string) {
     } catch (error) {
         console.error('Failed to approve user:', error);
         return { error: 'Failed to approve' };
+    }
+}
+
+export async function rejectUser(userId: string) {
+    const session = await auth();
+    const currentUser = await prisma.user.findUnique({ where: { id: session?.user?.id } });
+    if (currentUser?.role !== 'ADMIN') return { error: 'Unauthorized' };
+
+    try {
+        // Permanently delete the registration request
+        await prisma.user.delete({
+            where: { id: userId }
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to reject user:', error);
+        return { error: 'Failed to reject' };
     }
 }

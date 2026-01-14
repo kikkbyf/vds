@@ -10,6 +10,7 @@ export default function LoginPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,14 +42,8 @@ export default function LoginPage() {
                 if (res.error) {
                     setError(res.error);
                 } else {
-                    // Auto login after success? Or just switch to login.
-                    // Let's verify by just logging in automatically if possible, 
-                    // but for simplicity switch to login mode with success msg.
-                    // Actually, let's just sign them in directly if we wanted, 
-                    // but safer to ask them to sign in.
-                    setIsLogin(true);
+                    setSuccessMsg('true');
                     setError('');
-                    alert('Account created! Please sign in.');
                 }
             }
         } catch (err) {
@@ -72,59 +67,80 @@ export default function LoginPage() {
                     <div className="brand-section">
                         <div className="logo-text">VDS<span className="version">v1.14</span></div>
                         <p className="system-msg">
-                            {isLogin ? 'Enter authorized credentials.' : 'New user registration sequence.'}
+                            {successMsg ? 'Request Submitted.' : (isLogin ? 'Enter authorized credentials.' : 'New user registration sequence.')}
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="retro-form">
-                        <div className="input-group">
-                            <label>Username:</label>
-                            <input
-                                name="email"
-                                type="email"
-                                required
-                                placeholder="Enter email..."
-                                className="retro-input"
-                            />
-                        </div>
-
-                        <div className="input-group">
-                            <label>Password:</label>
-                            <input
-                                name="password"
-                                type="password"
-                                required
-                                minLength={6}
-                                placeholder="********"
-                                className="retro-input"
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="error-box">
-                                <span className="error-icon">⚠</span>
-                                {error}
+                    {successMsg ? (
+                        <div className="success-view">
+                            <div className="status-icon">✓</div>
+                            <h3 className="status-title">Registration Pending</h3>
+                            <p className="status-desc">
+                                Your account request has been sent to the administrator.
+                                <br /><br />
+                                Status: <b>WAITING_FOR_APPROVAL</b>
+                                <br /><br />
+                                Please contact the admin to expedite access.
+                            </p>
+                            <div className="action-row">
+                                <button
+                                    onClick={() => { setSuccessMsg(''); setIsLogin(true); }}
+                                    className="retro-btn primary"
+                                >
+                                    Return to Login
+                                </button>
                             </div>
-                        )}
-
-                        <div className="action-row">
-                            <button
-                                type="button"
-                                onClick={() => setIsLogin(!isLogin)}
-                                className="retro-btn secondary"
-                            >
-                                {isLogin ? 'Register...' : 'Cancel'}
-                            </button>
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="retro-btn primary"
-                            >
-                                {loading ? 'Processing...' : (isLogin ? 'Connect' : 'Initialize')}
-                            </button>
                         </div>
-                    </form>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="retro-form">
+                            <div className="input-group">
+                                <label>Username:</label>
+                                <input
+                                    name="email"
+                                    type="email"
+                                    required
+                                    placeholder="Enter email..."
+                                    className="retro-input"
+                                />
+                            </div>
+
+                            <div className="input-group">
+                                <label>Password:</label>
+                                <input
+                                    name="password"
+                                    type="password"
+                                    required
+                                    minLength={6}
+                                    placeholder="********"
+                                    className="retro-input"
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="error-box">
+                                    <span className="error-icon">⚠</span>
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className="action-row">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsLogin(!isLogin)}
+                                    className="retro-btn secondary"
+                                >
+                                    {isLogin ? 'Register...' : 'Cancel'}
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="retro-btn primary"
+                                >
+                                    {loading ? 'Processing...' : (isLogin ? 'Connect' : 'Initialize')}
+                                </button>
+                            </div>
+                        </form>
                 </div>
             </div>
 
@@ -280,6 +296,29 @@ export default function LoginPage() {
                 .retro-btn:disabled {
                     color: #808080;
                     cursor: not-allowed;
+                }
+
+                .success-view {
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 16px;
+                }
+                .status-icon {
+                    font-size: 48px;
+                    color: #008000;
+                    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+                }
+                .status-title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #000;
+                }
+                .status-desc {
+                    font-size: 14px;
+                    color: #404040;
+                    line-height: 1.4;
                 }
             `}</style>
         </div>
