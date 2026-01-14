@@ -19,8 +19,14 @@ export default function LoginPage() {
         setError('');
 
         const formData = new FormData(e.currentTarget);
-        const email = formData.get('email') as string;
-        const password = formData.get('password') as string;
+
+        // Defaults only for dev
+        const isDev = process.env.NODE_ENV === 'development';
+        const defaultEmail = isDev ? 'admin@example.com' : '';
+        const defaultPass = isDev ? 'bypass' : '';
+
+        const email = (formData.get('email') as string) || defaultEmail;
+        const password = (formData.get('password') as string) || defaultPass;
 
         try {
             if (isLogin) {
@@ -107,7 +113,7 @@ export default function LoginPage() {
                                 <input
                                     name="email"
                                     type="email"
-                                    required
+                                    // required
                                     placeholder="Enter email..."
                                     className="retro-input"
                                 />
@@ -118,8 +124,8 @@ export default function LoginPage() {
                                 <input
                                     name="password"
                                     type="password"
-                                    required
-                                    minLength={6}
+                                    // required
+                                    minLength={0}
                                     placeholder="********"
                                     className="retro-input"
                                 />

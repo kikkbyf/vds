@@ -21,4 +21,5 @@ export const authConfig = {
         },
     },
     providers: [], // Configured in auth.ts to avoid edge runtime issues with bcrypt
+    secret: process.env.AUTH_SECRET || 'dev-secret-fallback-key',
 } satisfies NextAuthConfig;

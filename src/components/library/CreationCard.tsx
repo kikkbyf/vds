@@ -18,9 +18,10 @@ interface CreationItem {
 interface CreationCardProps {
     item: CreationItem;
     onRemix: (id: string) => void;
+    onClick?: () => void;
 }
 
-export default function CreationCard({ item, onRemix }: CreationCardProps) {
+export default function CreationCard({ item, onRemix, onClick }: CreationCardProps) {
     const handleDownload = (e: React.MouseEvent) => {
         e.stopPropagation();
         const link = document.createElement('a');
@@ -38,7 +39,7 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
     };
 
     return (
-        <div className="creation-card group">
+        <div className="creation-card group" onClick={onClick}>
             <div className="image-wrapper">
                 <Image
                     src={item.outputImageUrl}
@@ -54,7 +55,7 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                     <div className="action-buttons">
                         <button
                             className="action-btn remix-btn"
-                            onClick={() => onRemix(item.id)}
+                            onClick={(e) => { e.stopPropagation(); onRemix(item.id); }}
                             title="Remix this creation"
                         >
                             <RefreshCw size={14} />
@@ -105,6 +106,7 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                     flex-direction: column;
                     transition: all 0.3s ease;
                     position: relative;
+                    cursor: pointer;
                 }
                 .creation-card:hover {
                     transform: translateY(-4px);

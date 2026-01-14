@@ -66,3 +66,7 @@ htmlcov/
 .idea/
 *.swp
 *.swo
+
+# Local logs
+logs/
+_generation_logs/

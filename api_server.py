@@ -15,6 +15,17 @@ from src.interface.types.external_types import (
     GeminiBananaProTextToImageInput
 )
 import asyncio
+import os
+import json
+import time
+from datetime import datetime
+
+# --- Local Logging Setup ---
+SESSION_ID = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+LOG_BASE_DIR = os.path.join(os.getcwd(), "_generation_logs", SESSION_ID)
+os.makedirs(LOG_BASE_DIR, exist_ok=True)
+print(f"📂 Logging session to: {LOG_BASE_DIR}")
+
 
 app = FastAPI()
 
@@ -95,6 +106,37 @@ async def generate_image(request: GenerateRequest):
             raise HTTPException(status_code=500, detail=result.error or "Generation failed")
         
         if result.image_data:
+            # --- Local Logging: Save Artifacts ---
+            try:
+                # 1. Create Request Folder
+                req_id = f"req_{int(time.time()*1000)}"
+                req_dir = os.path.join(LOG_BASE_DIR, req_id)
+                os.makedirs(req_dir, exist_ok=True)
+
+                # 2. Save Prompt & Metadata
+                metadata = request.dict()
+                # Remove large data from metadata if present (though images are separate strings)
+                # metadata['images'] = [f"<base64_len_{len(x)}>" for x in (metadata.get('images') or [])]
+                # metadata['image_url'] = "..." # Deprecated
+                
+                with open(os.path.join(req_dir, "prompt.json"), "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2, default=str)
+
+                # 3. Save Input Images
+                for idx, img_bytes in enumerate(image_inputs):
+                    # We only have bytes here.
+                    with open(os.path.join(req_dir, f"input_{idx}.png"), "wb") as f:
+                        f.write(img_bytes)
+
+                # 4. Save Output Image
+                with open(os.path.join(req_dir, "output.png"), "wb") as f:
+                    f.write(result.image_data)
+                
+                print(f"✅ Saved generation log to {req_dir}")
+
+            except Exception as log_err:
+                print(f"⚠️ Failed to save local log: {log_err}")
+
             # Convert bytes back to base64 data URI for frontend to display
             b64_img = base64.b64encode(result.image_data).decode('utf-8')
             return {"image_data": f"data:image/png;base64,{b64_img}"}

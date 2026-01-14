@@ -1,8 +1,9 @@
-'use client';
-
+// Imports updated
+import { useState } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useRouter } from 'next/navigation';
 import CreationCard from '@/components/library/CreationCard';
+import CreationDetailsModal from '@/components/library/CreationDetailsModal';
 
 // Define the full creation type needed for remixing
 export interface FullCreation {
@@ -29,6 +30,7 @@ interface LibraryGridProps {
 export default function LibraryGrid({ creations }: LibraryGridProps) {
     const setParamsFromCreation = useStudioStore((state) => state.setParamsFromCreation);
     const router = useRouter();
+    const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const handleRemix = (id: string) => {
         const creation = creations.find(c => c.id === id);
@@ -50,6 +52,8 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
         // 2. Redirect to Studio
         router.push('/');
     };
+
+    const selectedCreation = creations.find(c => c.id === selectedId);
 
     if (creations.length === 0) {
         return (
@@ -81,9 +85,18 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                     <CreationCard
                         item={creation}
                         onRemix={handleRemix}
+                        onClick={() => setSelectedId(creation.id)}
                     />
                 </div>
             ))}
+
+            {selectedCreation && (
+                <CreationDetailsModal
+                    creation={selectedCreation}
+                    onClose={() => setSelectedId(null)}
+                    onRemix={handleRemix}
+                />
+            )}
 
             <style jsx>{`
                 .masonry-container {

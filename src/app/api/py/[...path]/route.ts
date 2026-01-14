@@ -34,45 +34,51 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         }
         userId = session.user.id;
 
-        // Parse to find cost
-        try {
-            const jsonBody = JSON.parse(bodyText);
-            const size = jsonBody.image_size || '1K';
+        // --- DEV BYPASS ---
+        if (userId === 'dev-admin') {
+            console.log('[Billing] Skipping billing check for dev-admin');
+            shouldBill = false; // Disable billing for this request
+        } else {
+            // Parse to find cost
+            try {
+                const jsonBody = JSON.parse(bodyText);
+                const size = jsonBody.image_size || '1K';
 
-            // "4k=5积分 1k=1积分 2k=2积分"
-            if (String(size).toUpperCase().includes('4K')) cost = 5;
-            else if (String(size).toUpperCase().includes('2K')) cost = 2;
-            else cost = 1; // Default 1K or other
+                // "4k=5积分 1k=1积分 2k=2积分"
+                if (String(size).toUpperCase().includes('4K')) cost = 5;
+                else if (String(size).toUpperCase().includes('2K')) cost = 2;
+                else cost = 1; // Default 1K or other
 
-            // Check Balance
-            const user = await prisma.user.findUnique({ where: { id: userId } });
-            if (!user || (user.credits ?? 0) < cost) {
-                return NextResponse.json(
-                    { error: `Insufficient Credits. Cost: ${cost}, Balance: ${user?.credits ?? 0}` },
-                    { status: 402 }
-                );
+                // Check Balance
+                const user = await prisma.user.findUnique({ where: { id: userId } });
+                if (!user || (user.credits ?? 0) < cost) {
+                    return NextResponse.json(
+                        { error: `Insufficient Credits. Cost: ${cost}, Balance: ${user?.credits ?? 0}` },
+                        { status: 402 }
+                    );
+                }
+
+                // Deduct (Optimistic)
+                await prisma.$transaction([
+                    prisma.user.update({
+                        where: { id: userId },
+                        data: { credits: { decrement: cost } }
+                    }),
+                    prisma.creditLog.create({
+                        data: {
+                            userId: userId,
+                            amount: -cost,
+                            reason: `Generation ${size}`
+                        }
+                    })
+                ]);
+                console.log(`[Billing] Deducted ${cost} credits from ${userId} for ${size}`);
+
+            } catch (error) {
+                console.error('[Billing] Error processing billing:', error);
+                return NextResponse.json({ error: 'Billing check failed' }, { status: 500 });
             }
-
-            // Deduct (Optimistic)
-            await prisma.$transaction([
-                prisma.user.update({
-                    where: { id: userId },
-                    data: { credits: { decrement: cost } }
-                }),
-                prisma.creditLog.create({
-                    data: {
-                        userId: userId,
-                        amount: -cost,
-                        reason: `Generation ${size}`
-                    }
-                })
-            ]);
-            console.log(`[Billing] Deducted ${cost} credits from ${userId} for ${size}`);
-
-        } catch (error) {
-            console.error('[Billing] Error processing billing:', error);
-            return NextResponse.json({ error: 'Billing check failed' }, { status: 500 });
-        }
+        } // End else (real billing)
     }
     // --- BILLING LOGIC END ---
 

@@ -107,7 +107,7 @@ export default function Viewport3D() {
             >
                 <React.Suspense fallback={null}>
                     {/* Manual positioning group to lift model above grid */}
-                    <group position={[0, 1.8, 0]}>
+                    <group position={[0, 0.28, 0]}>
                         {/* In "Textured" (2D-3D) mode: Show the Hologram (Image + Displacement) */}
                         {viewMode !== 'clay' && <DepthHologram />}
 
