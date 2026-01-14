@@ -43,11 +43,13 @@ export default function LibraryContent({ creations }: { creations: any[] }) {
                 .library-layout {
                     display: grid;
                     grid-template-columns: 50px 1fr;
+                    grid-template-areas: "sidebar content";
                     height: 100vh;
                     background: var(--bg-app);
                 }
                 
                 .library-content {
+                    grid-area: content;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
