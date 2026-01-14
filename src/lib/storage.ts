@@ -21,7 +21,21 @@ export async function saveImageToStorage(base64Data: string): Promise<string> {
     const filepath = path.join(UPLOAD_DIR, filename);
 
     // 3. Write to disk (Railway Volume mounted at public/uploads)
-    await fs.promises.writeFile(filepath, base64Image, { encoding: 'base64' });
+    console.log(`[Storage] Writing file to: ${filepath}`);
+    try {
+        await fs.promises.writeFile(filepath, base64Image, { encoding: 'base64' });
+
+        // Verify write
+        const stats = await fs.promises.stat(filepath);
+        console.log(`[Storage] File written successfully. Size: ${stats.size} bytes`);
+
+        if (stats.size === 0) {
+            console.error(`[Storage] WARNING: File written but size is 0 bytes!`);
+        }
+    } catch (writeErr) {
+        console.error(`[Storage] Write Failed:`, writeErr);
+        throw writeErr;
+    }
 
     // 4. Return public URL
     return `/uploads/${filename}`;
