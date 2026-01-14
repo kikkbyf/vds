@@ -1,17 +1,14 @@
 'use client';
 
-import { RefreshCw, Clock } from 'lucide-react';
+import { RefreshCw, Clock, Download } from 'lucide-react';
 import Image from 'next/image';
 
-// Lightweight type definition to avoid importing heavy Prisma types on client if not needed
-// consistent with what getLibrary returns
 interface CreationItem {
     id: string;
     prompt: string;
     outputImageUrl: string;
     createdAt: Date;
     imageSize?: string;
-    // ... we can add more fields if we show them
 }
 
 interface CreationCardProps {
@@ -20,27 +17,48 @@ interface CreationCardProps {
 }
 
 export default function CreationCard({ item, onRemix }: CreationCardProps) {
+    const handleDownload = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const link = document.createElement('a');
+        link.href = item.outputImageUrl;
+        link.download = `VDS-${item.id}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="creation-card group">
             <div className="image-wrapper">
                 <Image
                     src={item.outputImageUrl}
                     alt={item.prompt}
-                    width={500}
-                    height={500}
+                    width={0}
+                    height={0}
+                    sizes="100vw"
+                    style={{ width: '100%', height: 'auto' }}
                     className="creation-image"
-                    unoptimized={item.outputImageUrl.startsWith('/uploads')}
                 />
 
                 <div className="overlay">
-                    <button
-                        className="remix-btn"
-                        onClick={() => onRemix(item.id)}
-                        title="Remix this creation"
-                    >
-                        <RefreshCw size={14} />
-                        <span>Remix</span>
-                    </button>
+                    <div className="action-buttons">
+                        <button
+                            className="action-btn remix-btn"
+                            onClick={() => onRemix(item.id)}
+                            title="Remix this creation"
+                        >
+                            <RefreshCw size={14} />
+                            <span>Remix</span>
+                        </button>
+                        <button
+                            className="action-btn download-btn"
+                            onClick={handleDownload}
+                            title="Download Original"
+                        >
+                            <Download size={14} />
+                        </button>
+                    </div>
+
                     <div className="overlay-info">
                         {item.imageSize && <span className="badge">{item.imageSize}</span>}
                     </div>
@@ -115,28 +133,54 @@ export default function CreationCard({ item, onRemix }: CreationCardProps) {
                     border: 1px solid rgba(255,255,255,0.2);
                 }
 
-                .remix-btn {
-                    background: white;
-                    color: black;
+                .action-buttons {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transform: translateY(10px);
+                    transition: all 0.3s;
+                }
+                .group:hover .action-buttons {
+                    transform: translateY(0);
+                }
+
+                .action-btn {
                     border: none;
-                    padding: 10px 20px;
-                    border-radius: 30px;
                     font-size: 13px;
                     font-weight: 600;
                     display: flex;
                     align-items: center;
                     gap: 8px;
                     cursor: pointer;
-                    transform: translateY(10px);
-                    transition: all 0.3s;
+                    height: 36px;
+                    border-radius: 18px;
+                    transition: all 0.2s;
                     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
                 }
-                .group:hover .remix-btn {
-                    transform: translateY(0);
+                .action-btn:hover {
+                    transform: scale(1.05);
+                }
+
+                .remix-btn {
+                    background: white;
+                    color: black;
+                    padding: 0 20px;
                 }
                 .remix-btn:hover {
                     background: #f0f0f0;
-                    transform: scale(1.05);
+                }
+
+                .download-btn {
+                    background: rgba(0,0,0,0.6);
+                    color: white;
+                    width: 36px;
+                    justify-content: center;
+                    border: 1px solid rgba(255,255,255,0.2);
+                }
+                .download-btn:hover {
+                    background: rgba(0,0,0,0.8);
+                    background-color: white;
+                    color: black;
                 }
 
                 .info {
