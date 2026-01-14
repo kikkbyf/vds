@@ -1,24 +1,43 @@
 'use client';
 
+import { useState } from 'react';
 import LibraryGrid from './LibraryGrid';
 import SideMenu from '@/components/layout/Sidebar';
-import { Creation } from '@prisma/client';
+import { Bug } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const DebugLogModal = dynamic(() => import('@/components/library/DebugLogModal'), { ssr: false });
 
 export default function LibraryContent({ creations }: { creations: any[] }) {
+    const [showLogs, setShowLogs] = useState(false);
+
     return (
         <div className="library-layout">
             <SideMenu />
 
             <main className="library-content">
                 <header className="library-header">
-                    <h1>My Library</h1>
-                    <span className="count">{creations.length} CREATIONS</span>
+                    <div className="flex items-center gap-4">
+                        <h1>My Library</h1>
+                        <span className="count">{creations.length} CREATIONS</span>
+                    </div>
+
+                    <button
+                        onClick={() => setShowLogs(true)}
+                        className="debug-btn"
+                        title="View Generation Logs"
+                    >
+                        <Bug size={16} />
+                        <span>Logs</span>
+                    </button>
                 </header>
 
                 <div className="scroll-area">
                     <LibraryGrid creations={creations} />
                 </div>
             </main>
+
+            {showLogs && <DebugLogModal onClose={() => setShowLogs(false)} />}
 
             <style jsx>{`
                 .library-layout {
@@ -57,6 +76,24 @@ export default function LibraryContent({ creations }: { creations: any[] }) {
                     background: var(--bg-app);
                     padding: 4px 8px;
                     border-radius: 4px;
+                }
+
+                .debug-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    color: var(--text-secondary);
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .debug-btn:hover {
+                    background: rgba(255,255,255,0.1);
+                    color: var(--text-primary);
                 }
 
                 .scroll-area {
