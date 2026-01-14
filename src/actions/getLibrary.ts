@@ -3,7 +3,7 @@
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
-export async function getLibrary() {
+export async function getLibrary(): Promise<{ creations: any[], isAdmin: boolean }> {
     const session = await auth();
     if (!session?.user?.id) return { creations: [], isAdmin: false };
 
