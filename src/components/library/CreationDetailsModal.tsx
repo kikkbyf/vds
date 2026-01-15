@@ -186,6 +186,8 @@ export default function CreationDetailsModal({ creation, onClose, onRemix }: Cre
                 .main-image {
                     max-width: 100%;
                     max-height: 100%;
+                    width: auto;
+                    height: auto;
                     object-fit: contain;
                     border-radius: 4px;
                 }
