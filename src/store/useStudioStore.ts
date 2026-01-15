@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { generatePrompt } from '@/utils/promptUtils';
-import { createCreation } from '@/actions/createCreation';
 
 interface StudioState {
     // Input
@@ -245,23 +244,33 @@ export const useStudioStore = create<StudioState>()(
                         get().fetchCredits();
 
                         // --- Auto-Save to Library ---
-                        // We call the action directly
-                        console.log("[Store] Triggering auto-save to library...");
-                        createCreation({
-                            prompt: currentPrompt,
-                            aspectRatio: aspectRatio,
-                            imageSize: imageSize,
-                            shotPreset: shotPreset,
-                            lightingPreset: lightingPreset,
-                            focalLength: focalLength,
-                            guidance: guidanceScale,
-                            negative: negativePrompt,
-                            inputImages: uploadedImages, // Pass inputs
-                            outputImage: data.image_data // Pass output base64
+                        // --- Auto-Save to Library ---
+                        // Switched to API Route for stability (Avoids "Failed to find Server Action")
+                        console.log("[Store] Triggering auto-save to library (API)...");
+
+                        fetch('/api/library/save', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                prompt: currentPrompt,
+                                aspectRatio: aspectRatio,
+                                imageSize: imageSize,
+                                shotPreset: shotPreset,
+                                lightingPreset: lightingPreset,
+                                focalLength: focalLength,
+                                guidance: guidanceScale,
+                                negative: negativePrompt,
+                                inputImages: uploadedImages,
+                                outputImage: data.image_data
+                            })
                         })
-                            .then(res => {
-                                if (res.success) console.log("[Store] Auto-save success");
-                                else console.error("[Store] Auto-save failed:", res.error);
+                            .then(async (res) => {
+                                if (res.ok) {
+                                    console.log("[Store] Auto-save success");
+                                } else {
+                                    const err = await res.json().catch(() => ({ error: res.statusText }));
+                                    console.error("[Store] Auto-save failed:", err);
+                                }
                             })
                             .catch(err => console.error("[Store] Auto-save exception:", err));
                     } else {
