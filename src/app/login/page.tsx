@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-// import { registerUser } from '@/actions/register';
+
 import { User, Lock, Mail, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -53,9 +53,16 @@ export default function LoginPage() {
                 }
             } else {
                 // Register
-                const res = await registerUser(formData);
-                if (res.error) {
-                    setError(res.error);
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    setError(data.error || 'Registration failed');
                 } else {
                     setSuccessMsg('true');
                     setError('');
