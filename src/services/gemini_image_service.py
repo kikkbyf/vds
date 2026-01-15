@@ -104,13 +104,14 @@ class GeminiImageService:
         )
 
     async def _run_generation(self, prompt: str, images: List[Union[str, bytes]], aspect_ratio: str, image_size: str) -> GeminiBananaProImageOutput:
-        max_retries = 3
-        retry_delay = 2  # base delay in seconds
-        
+        max_retries = 5
+        retry_delay = 4  # Start with 4s delay
+
         for attempt in range(max_retries + 1):
             try:
                 logger.info(f"Generating image with {self.model} (Native {image_size})... Attempt {attempt + 1}")
                 
+                # ... Payload Building (Omitted for brevity, assumed unchanged) ...
                 # 1. Build Payload
                 parts = [{"text": prompt}]
                 if images:
@@ -126,7 +127,7 @@ class GeminiImageService:
                         "responseModalities": ["IMAGE"],
                         "imageConfig": {
                             "aspectRatio": aspect_ratio,
-                            "imageSize": image_size # Native 2K/4K support
+                            "imageSize": image_size 
                         }
                     }
                 }
@@ -134,17 +135,12 @@ class GeminiImageService:
                 # 2. Send Request
                 url = f"https://aiplatform.googleapis.com/v1beta1/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model}:generateContent"
                 
+                # Using a longer timeout for the request itself
                 response = requests.post(url, headers=self._get_headers(), json=payload, timeout=600)
 
                 if response.status_code == 429:
-                    if attempt < max_retries:
-                        sleep_time = retry_delay * (2 ** attempt)
-                        logger.warning(f"API Rate Limit (429) hit. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
-                        time.sleep(sleep_time)
-                        continue
-                    else:
-                        raise ValueError(f"API Error 429: Resource exhausted after {max_retries} retries.")
-
+                    raise ValueError(f"API Error 429: Rate limit exceeded")
+                
                 if response.status_code != 200:
                     raise ValueError(f"API Error {response.status_code}: {response.text}")
 
@@ -152,7 +148,6 @@ class GeminiImageService:
                 rjson = response.json()
                 image_bytes = None
                 
-                # Navigation: candidates[0].content.parts[0].inlineData.data
                 candidates = rjson.get("candidates", [])
                 for cand in candidates:
                     content = cand.get("content", {})
@@ -167,7 +162,6 @@ class GeminiImageService:
                 if not image_bytes:
                     raise ValueError("No image data found in response")
 
-                # Debug: Log assets
                 self._log_generation_assets(prompt, images, image_bytes)
 
                 return GeminiBananaProImageOutput(
@@ -179,19 +173,23 @@ class GeminiImageService:
                 )
 
             except Exception as e:
-                if attempt < max_retries and "429" in str(e):
-                    # Already handled above if it's a direct status_code check, 
-                    # but if it comes from an exception, retry here too.
+                is_rate_limit = "429" in str(e) or "Resource exhausted" in str(e) or "Quota exceeded" in str(e)
+                
+                if attempt < max_retries and is_rate_limit:
+                    sleep_time = retry_delay * (2 ** attempt)
+                    logger.warning(f"API Rate Limit (429) hit. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(sleep_time)
                     continue
                 
-                logger.exception(f"generation failed on attempt {attempt + 1}")
-                if attempt == max_retries:
+                # If it's not a rate limit error, or we ran out of retries
+                if attempt == max_retries or not is_rate_limit:
+                    logger.exception(f"Generation failed on attempt {attempt + 1}: {str(e)}")
                     return GeminiBananaProImageOutput(
                         success=False,
                         status=500,
                         prompt=prompt,
                         model=self.model,
-                        error=str(e),
+                        error=f"Generation failed: {str(e)}",
                     )
         
         return GeminiBananaProImageOutput(
@@ -199,7 +197,7 @@ class GeminiImageService:
             status=500,
             prompt=prompt,
             model=self.model,
-            error="Unexpected generation failure after retries",
+            error="Unexpected generation failure",
         )
 
     def _log_generation_assets(self, prompt: str, images: List[Union[str, bytes]], output_bytes: bytes):

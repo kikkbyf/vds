@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
 
-export const maxDuration = 300; // Increased to 300s (5min) for 4K generation
+export const maxDuration = 600; // Increased to 600s (10min) for 4K/Retry generation
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     const { path } = await params;
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000); // 300 seconds (5 mins)
+        const timeoutId = setTimeout(() => controller.abort(), 600000); // 600 seconds (10 mins)
 
         const secret = process.env.INTERNAL_API_SECRET || "";
         if (!secret) {

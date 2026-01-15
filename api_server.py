@@ -124,14 +124,25 @@ async def generate_image(request: GenerateRequest, raw_request: Request):
             else:
                 # Local Path (e.g. /uploads/...)
                 try:
-                    # Remove leading slash for os.path.join
-                    clean_path = input_item.lstrip("/")
-                    # Try common locations
-                    possible_paths = [
-                        clean_path,
-                        os.path.join("public", clean_path),
-                        os.path.join(os.getcwd(), clean_path)
-                    ]
+                    # Handle Next.js /api/uploads/ virtual path
+                    if "/api/uploads/" in input_item:
+                        # Convert /api/uploads/xyz.png -> public/uploads/xyz.png
+                        filename = input_item.split("/api/uploads/")[-1]
+                        possible_paths = [
+                            os.path.join("public", "uploads", filename),
+                            os.path.join(os.getcwd(), "public", "uploads", filename),
+                            # Explicit fallback for Railway/Docker default path
+                            os.path.join("/app", "public", "uploads", filename)
+                        ]
+                    else:
+                        # Standard local path handling
+                        clean_path = input_item.lstrip("/")
+                        possible_paths = [
+                            clean_path,
+                            os.path.join("public", clean_path),
+                            os.path.join(os.getcwd(), clean_path),
+                            os.path.join("/app", clean_path)
+                        ]
                     
                     found_bytes = None
                     for p in possible_paths:
@@ -143,8 +154,13 @@ async def generate_image(request: GenerateRequest, raw_request: Request):
                     if found_bytes:
                         image_inputs.append(found_bytes)
                     else:
+                        # Log the attempted paths for debugging
+                        logger.error(f"File not found. Tried: {possible_paths}")
                         raise FileNotFoundError(f"Could not find local file: {input_item}")
                 except Exception as e:
+                    logger.error(f"Error loading image {input_item}: {str(e)}")
+                    # Don't crash the whole batch if one reference fails, or maybe we should?
+                    # The user expects this image to be used.
                     raise HTTPException(status_code=400, detail=f"Failed to load local image: {str(e)}")
 
         if image_inputs:
