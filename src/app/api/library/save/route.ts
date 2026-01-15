@@ -5,7 +5,8 @@ import { saveImageToStorage, saveInputImageToStorage } from '@/lib/storage';
 import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
-    console.log('[API] /api/library/save - Starting request');
+    const len = req.headers.get('content-length');
+    console.log(`[API] /api/library/save - Starting request. Content-Length: ${len}`);
     const session = await auth();
 
     if (!session?.user?.id) {

@@ -88,9 +88,15 @@ export const useStudioStore = create<StudioState>()(
 
             credits: 0,
             fetchCredits: async () => {
-                const { getUserCredits } = await import('@/actions/user');
-                const c = await getUserCredits();
-                set({ credits: c });
+                try {
+                    const res = await fetch('/api/user/credits');
+                    if (res.ok) {
+                        const data = await res.json();
+                        set({ credits: data.credits });
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch credits:", e);
+                }
             },
 
             isGenerating: false,
@@ -270,9 +276,13 @@ export const useStudioStore = create<StudioState>()(
                                 } else {
                                     const err = await res.json().catch(() => ({ error: res.statusText }));
                                     console.error("[Store] Auto-save failed:", err);
+                                    alert("Warning: Failed to save image to library! " + (err.error || "Unknown error"));
                                 }
                             })
-                            .catch(err => console.error("[Store] Auto-save exception:", err));
+                            .catch(err => {
+                                console.error("[Store] Auto-save exception:", err);
+                                alert("Warning: Network error saving to library.");
+                            });
                     } else {
                         throw new Error('API returned success but no image data found.');
                     }
