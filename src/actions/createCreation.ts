@@ -20,22 +20,28 @@ export type CreateCreationInput = {
 };
 
 export async function createCreation(data: CreateCreationInput) {
+    console.log(`[CreationAction] Starting for prompt: ${data.prompt.substring(0, 50)}...`);
     const session = await auth();
+
     if (!session?.user?.id) {
+        console.error(`[CreationAction] Unauthorized: No session found`);
         throw new Error('Unauthorized');
     }
 
     try {
+        console.log(`[CreationAction] User: ${session.user.id}, Saving output image...`);
         // 1. Save Output Image
         const outputUrl = await saveImageToStorage(data.outputImage);
+        console.log(`[CreationAction] Output saved to: ${outputUrl}`);
 
         // 2. Save Input Images (if they are new base64 uploads)
+        console.log(`[CreationAction] Saving ${data.inputImages.length} input images...`);
         const inputs = await Promise.all(
             data.inputImages.map((img) => saveInputImageToStorage(img))
         );
 
         // 3. Persist to DB
-        await prisma.creation.create({
+        const creation = await prisma.creation.create({
             data: {
                 userId: session.user.id,
                 prompt: data.prompt,
@@ -52,10 +58,11 @@ export async function createCreation(data: CreateCreationInput) {
             },
         });
 
+        console.log(`[CreationAction] DB Record created: ${creation.id}`);
         revalidatePath('/library');
         return { success: true };
     } catch (error) {
-        console.error('Failed to create creation:', error);
+        console.error('[CreationAction] Failed to create creation:', error);
         return { success: false, error: 'Failed to save creation' };
     }
 }

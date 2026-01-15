@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generatePrompt } from '@/utils/promptUtils';
+import { createCreation } from '@/actions/createCreation';
 
 interface StudioState {
     // Input
@@ -244,21 +245,25 @@ export const useStudioStore = create<StudioState>()(
                         get().fetchCredits();
 
                         // --- Auto-Save to Library ---
-                        // We do this asynchronously without awaiting so UI updates immediately
-                        import('@/actions/createCreation').then(({ createCreation }) => {
-                            createCreation({
-                                prompt: currentPrompt,
-                                aspectRatio: aspectRatio,
-                                imageSize: imageSize,
-                                shotPreset: shotPreset,
-                                lightingPreset: lightingPreset,
-                                focalLength: focalLength,
-                                guidance: guidanceScale,
-                                negative: negativePrompt,
-                                inputImages: uploadedImages, // Pass inputs
-                                outputImage: data.image_data // Pass output base64
-                            }).catch(err => console.error("Auto-save failed", err));
-                        });
+                        // We call the action directly
+                        console.log("[Store] Triggering auto-save to library...");
+                        createCreation({
+                            prompt: currentPrompt,
+                            aspectRatio: aspectRatio,
+                            imageSize: imageSize,
+                            shotPreset: shotPreset,
+                            lightingPreset: lightingPreset,
+                            focalLength: focalLength,
+                            guidance: guidanceScale,
+                            negative: negativePrompt,
+                            inputImages: uploadedImages, // Pass inputs
+                            outputImage: data.image_data // Pass output base64
+                        })
+                            .then(res => {
+                                if (res.success) console.log("[Store] Auto-save success");
+                                else console.error("[Store] Auto-save failed:", res.error);
+                            })
+                            .catch(err => console.error("[Store] Auto-save exception:", err));
                     } else {
                         throw new Error('API returned success but no image data found.');
                     }
