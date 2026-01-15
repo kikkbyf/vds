@@ -105,16 +105,47 @@ async def generate_image(request: GenerateRequest, raw_request: Request):
         image_inputs = []
         for input_item in raw_inputs:
             # Check if it's a data URI (base64)
-            if input_item.startswith("data:image"):
+            if input_item.startswith("data:"):
                 try:
                     header, encoded = input_item.split(",", 1)
                     image_bytes = base64.b64decode(encoded)
                     image_inputs.append(image_bytes)
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=f"Invalid image data URI: {str(e)}")
+            elif input_item.startswith("http"):
+                # Remote URL
+                try:
+                    import requests
+                    resp = requests.get(input_item, timeout=30)
+                    resp.raise_for_status()
+                    image_inputs.append(resp.content)
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Failed to fetch image from URL: {str(e)}")
             else:
-                # Regular URL
-                image_inputs.append(input_item)
+                # Local Path (e.g. /uploads/...)
+                try:
+                    # Remove leading slash for os.path.join
+                    clean_path = input_item.lstrip("/")
+                    # Try common locations
+                    possible_paths = [
+                        clean_path,
+                        os.path.join("public", clean_path),
+                        os.path.join(os.getcwd(), clean_path)
+                    ]
+                    
+                    found_bytes = None
+                    for p in possible_paths:
+                        if os.path.exists(p) and os.path.isfile(p):
+                            with open(p, "rb") as f:
+                                found_bytes = f.read()
+                            break
+                    
+                    if found_bytes:
+                        image_inputs.append(found_bytes)
+                    else:
+                        raise FileNotFoundError(f"Could not find local file: {input_item}")
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Failed to load local image: {str(e)}")
 
         if image_inputs:
             # Image-to-Image
