@@ -1,7 +1,7 @@
 'use client';
 
 import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders } from 'lucide-react';
-import Image from 'next/image';
+
 import { FullCreation } from '@/app/library/LibraryGrid';
 
 interface CreationDetailsModalProps {
@@ -35,13 +35,10 @@ export default function CreationDetailsModal({ creation, onClose, onRemix }: Cre
                     {/* Left: Image */}
                     <div className="image-section">
                         <div className="image-container">
-                            <Image
+                            <img
                                 src={creation.outputImageUrl}
                                 alt="Creation"
-                                width={1024}
-                                height={1024}
                                 className="main-image"
-                                unoptimized={true}
                             />
                         </div>
                         <div className="action-bar">
