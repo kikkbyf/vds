@@ -1,9 +1,11 @@
 // Imports updated
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useRouter } from 'next/navigation';
 import CreationCard from '@/components/library/CreationCard';
 import CreationDetailsModal from '@/components/library/CreationDetailsModal';
+import { Folder, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
 
 // Define the full creation type needed for remixing
 export interface FullCreation {
@@ -21,6 +23,10 @@ export interface FullCreation {
     outputImageUrl: string;
     status: string;
     createdAt: Date;
+    user?: {
+        name: string | null;
+        email: string;
+    } | null;
 }
 
 interface LibraryGridProps {
@@ -31,12 +37,30 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
     const setParamsFromCreation = useStudioStore((state) => state.setParamsFromCreation);
     const router = useRouter();
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+
+    // 1. Group Creations by User
+    const userGroups = useMemo(() => {
+        const groups: Record<string, FullCreation[]> = {};
+        creations.forEach(c => {
+            const uid = c.userId;
+            if (!groups[uid]) groups[uid] = [];
+            groups[uid].push(c);
+        });
+        return groups;
+    }, [creations]);
+
+    const userIds = Object.keys(userGroups);
+    const isMultiUser = userIds.length > 1;
+
+    // Determine current view mode
+    // If only 1 user exists (Normal User scenario), auto-select them effectively skipping Level 1
+    const effectiveViewingUserId = isMultiUser ? viewingUserId : (userIds[0] || null);
 
     const handleRemix = (id: string) => {
         const creation = creations.find(c => c.id === id);
         if (!creation) return;
 
-        // 1. Hydrate Store
         setParamsFromCreation({
             prompt: creation.prompt,
             negative: creation.negative,
@@ -49,9 +73,138 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
             inputImageUrls: creation.inputImageUrls
         });
 
-        // 2. Redirect to Studio
         router.push('/');
     };
+
+    // LEVEL 1: USER DIRECTORY (Only if multiple users exist and none selected)
+    if (isMultiUser && !viewingUserId) {
+        return (
+            <div className="directory-container">
+                <h2 className="section-title">User Directory <span className="count">({userIds.length})</span></h2>
+                <div className="folder-grid">
+                    {userIds.map(uid => {
+                        const userCreations = userGroups[uid];
+                        const user = userCreations[0]?.user;
+                        const latestImage = userCreations[0]?.outputImageUrl;
+
+                        return (
+                            <div key={uid} className="folder-card" onClick={() => setViewingUserId(uid)}>
+                                <div className="folder-preview">
+                                    {latestImage ? (
+                                        <div className="preview-image">
+                                            <Image
+                                                src={latestImage}
+                                                alt="Cover"
+                                                width={300}
+                                                height={300}
+                                                style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                                                unoptimized
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="preview-placeholder">
+                                            <Folder size={48} />
+                                        </div>
+                                    )}
+                                    <div className="count-badge">
+                                        <ImageIcon size={12} />
+                                        <span>{userCreations.length}</span>
+                                    </div>
+                                </div>
+                                <div className="folder-info">
+                                    <h3 className="user-email" title={user?.email}>{user?.email || 'Unknown User'}</h3>
+                                    <p className="user-id">ID: {uid.substring(0, 8)}...</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                <style jsx>{`
+                    .directory-container { padding: 32px; }
+                    .section-title {
+                        font-size: 20px;
+                        font-weight: 600;
+                        margin-bottom: 24px;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }
+                    .count { color: var(--text-secondary); font-size: 16px; font-weight: 400; }
+                    
+                    .folder-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                        gap: 24px;
+                    }
+                    
+                    .folder-card {
+                        background: var(--bg-panel);
+                        border: 1px solid var(--border-color);
+                        border-radius: 12px;
+                        overflow: hidden;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+                    .folder-card:hover {
+                        transform: translateY(-4px);
+                        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+                        border-color: var(--accent-blue);
+                    }
+
+                    .folder-preview {
+                        height: 160px;
+                        background: #1a1a1a;
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--text-muted);
+                    }
+                    .preview-image { width: 100%; height: 100%; }
+                    
+                    .count-badge {
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        background: rgba(0,0,0,0.6);
+                        color: white;
+                        backdrop-filter: blur(4px);
+                        border: 1px solid rgba(255,255,255,0.1);
+                        padding: 4px 8px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+
+                    .folder-info { padding: 16px; }
+                    .user-email {
+                        font-size: 14px;
+                        font-weight: 600;
+                        margin: 0 0 4px 0;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+                    .user-id {
+                        font-size: 11px;
+                        color: var(--text-muted);
+                        font-family: monospace;
+                        margin: 0;
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    // LEVEL 2: USER GALLERY (Shown if single user OR specific user selected)
+    const displayedCreations = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
+    // If somehow empty but we have an ID (shouldn't happen often unless filtering changes)
+    if (!displayedCreations) return <div className="p-8 text-center text-muted">No creations found.</div>;
+
+    // Get user info for header if in Admin "Drill-down" mode
+    const currentUserInfo = displayedCreations[0]?.user;
 
     const selectedCreation = creations.find(c => c.id === selectedId);
 
@@ -79,26 +232,74 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
     }
 
     return (
-        <div className="masonry-container">
-            {creations.map((creation) => (
-                <div key={creation.id} className="masonry-item">
-                    <CreationCard
-                        item={creation}
-                        onRemix={handleRemix}
-                        onClick={() => setSelectedId(creation.id)}
-                    />
+        <div className="gallery-layout">
+            {/* Header for Admin drill-down navigation */}
+            {isMultiUser && viewingUserId && (
+                <div className="gallery-header">
+                    <button className="back-btn" onClick={() => setViewingUserId(null)}>
+                        <ArrowLeft size={16} />
+                        Back to Users
+                    </button>
+                    <div className="user-context">
+                        <span className="label">Viewing User:</span>
+                        <span className="value">{currentUserInfo?.email || viewingUserId}</span>
+                    </div>
                 </div>
-            ))}
-
-            {selectedCreation && (
-                <CreationDetailsModal
-                    creation={selectedCreation}
-                    onClose={() => setSelectedId(null)}
-                    onRemix={handleRemix}
-                />
             )}
 
+            <div className="masonry-container">
+                {displayedCreations.map((creation) => (
+                    <div key={creation.id} className="masonry-item">
+                        <CreationCard
+                            item={creation}
+                            onRemix={handleRemix}
+                            onClick={() => setSelectedId(creation.id)}
+                        />
+                    </div>
+                ))}
+
+                {selectedCreation && (
+                    <CreationDetailsModal
+                        creation={selectedCreation}
+                        onClose={() => setSelectedId(null)}
+                        onRemix={handleRemix}
+                    />
+                )}
+            </div>
+
             <style jsx>{`
+                .gallery-header {
+                    padding: 16px 24px;
+                    border-bottom: 1px solid var(--border-color);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: var(--bg-app);
+                }
+                .back-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: none;
+                    border: none;
+                    color: var(--text-primary);
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    transition: background 0.2s;
+                }
+                .back-btn:hover { background: var(--control-bg); }
+                
+                .user-context {
+                    font-size: 13px;
+                    display: flex;
+                    gap: 8px;
+                }
+                .user-context .label { color: var(--text-secondary); }
+                .user-context .value { font-weight: 600; color: var(--accent-blue); }
+
                 .masonry-container {
                     padding: 24px;
                     column-count: 4;

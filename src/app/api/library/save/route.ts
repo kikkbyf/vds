@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { saveImageToStorage, saveInputImageToStorage } from '@/lib/storage';
+import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
     console.log('[API] /api/library/save - Starting request');
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
         });
 
         console.log(`[API] DB Record created: ${creation.id}`);
+        revalidatePath('/library');
         return NextResponse.json({ success: true, id: creation.id });
     } catch (error) {
         console.error('[API] /api/library/save - Failed:', error);

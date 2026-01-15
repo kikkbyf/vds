@@ -3,7 +3,7 @@
 import { X, Check, Trash2, Coins, BookOpen, ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getAllUsers, approveUser, rejectUser, updateUserCredits, getUserLogs } from '@/actions/admin';
+// import { getAllUsers, approveUser, rejectUser, updateUserCredits, getUserLogs } from '@/actions/admin'; // Removed Server Actions
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     interface User {
@@ -32,15 +32,19 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
         try {
             setLoading(true);
             setError(null);
-            const list = await getAllUsers();
+            // Replaced getAllUsers()
+            const res = await fetch('/api/admin/users');
+            if (!res.ok) throw new Error('Failed to fetch users');
+            const list = await res.json();
+
             // Ensure list is an array to prevnt 'map is not a function' if server returns null
             if (!Array.isArray(list)) throw new Error('Invalid response from server');
 
             setUsers(list);
             setFilteredUsers(list);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setError('Failed to load users. Please retry.');
+            setError(err.message || 'Failed to load users.');
         } finally {
             setLoading(false);
         }
@@ -49,9 +53,18 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     const loadLogs = async (userId: string) => {
         setLogsLoading(true);
         setViewLogsId(userId);
-        const data = await getUserLogs(userId);
-        setLogs(data);
-        setLogsLoading(false);
+        try {
+            // Replaced getUserLogs(userId)
+            const res = await fetch(`/api/admin/logs?userId=${userId}`);
+            if (!res.ok) throw new Error('Failed to fetch logs');
+            const data = await res.json();
+            setLogs(data);
+        } catch (e) {
+            console.error(e);
+            setLogs([]);
+        } finally {
+            setLogsLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -71,18 +84,32 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     }, []);
 
     const handleApprove = async (id: string) => {
-        const res = await approveUser(id);
-        if (res.error) {
-            alert(res.error);
+        // Replaced approveUser(id)
+        const res = await fetch('/api/admin/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: id })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
         }
         loadUsers();
     };
 
     const handleReject = async (id: string) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
-        const res = await rejectUser(id);
-        if (res.error) {
-            alert(res.error);
+        // Replaced rejectUser(id)
+        const res = await fetch('/api/admin/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: id })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
         }
         loadUsers();
     };
@@ -93,9 +120,16 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     };
 
     const saveCredits = async (id: string) => {
-        const res = await updateUserCredits(id, tempCredits);
-        if (res.error) {
-            alert(res.error);
+        // Replaced updateUserCredits(id, tempCredits)
+        const res = await fetch('/api/admin/credits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: id, credits: tempCredits })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
         }
         setEditCreditsId(null);
         loadUsers();
