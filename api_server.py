@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.services.gemini_image_service import GeminiImageService
@@ -18,13 +19,20 @@ import asyncio
 import os
 import json
 import time
+import secrets
 from datetime import datetime
 
+# --- Configuration & Secrets ---
+INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET")
+if not INTERNAL_API_SECRET:
+    print("⚠️  WARNING: INTERNAL_API_SECRET not set in .env! Security is compromised.")
+
 # --- Local Logging Setup ---
+# Base session ID for fallback
 SESSION_ID = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 LOG_BASE_DIR = os.path.join(os.getcwd(), "_generation_logs", SESSION_ID)
 os.makedirs(LOG_BASE_DIR, exist_ok=True)
-print(f"📂 Logging session to: {LOG_BASE_DIR}")
+print(f"📂 Default logging session to: {LOG_BASE_DIR}")
 
 
 app = FastAPI()
@@ -37,6 +45,33 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+# --- Zero Trust Security Middleware ---
+@app.middleware("http")
+async def verify_internal_secret(request: Request, call_next):
+    # Skip security check for docs/openapi if needed, or protect them too.
+    # For now, we strictly protect everything.
+    if request.url.path in ["/docs", "/openapi.json", "/redoc"]:
+        return await call_next(request)
+
+    client_host = request.client.host
+    # 1. Network Isolation Check (Double check even if bind is local)
+    if client_host not in ["127.0.0.1", "::1"]:
+        # Should not happen if bind is correct, but safe to check
+        return JSONResponse(status_code=403, content={"detail": "Forbidden Access"})
+
+    # 2. Secret Verification
+    secret_header = request.headers.get("X-Internal-Secret")
+    if not secret_header or not INTERNAL_API_SECRET:
+        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    
+    # Constant-time comparison to prevent timing attacks
+    if not secrets.compare_digest(secret_header, INTERNAL_API_SECRET):
+        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
+    response = await call_next(request)
+    return response
+
 
 service = GeminiImageService()
 
@@ -55,8 +90,11 @@ class GenerateRequest(BaseModel):
     enhance_prompt: bool = True
 
 @app.post("/generate")
-async def generate_image(request: GenerateRequest):
+async def generate_image(request: GenerateRequest, raw_request: Request):
     try:
+        # Capture Transaction ID for Logging
+        transaction_id = raw_request.headers.get("X-Transaction-ID", f"unknown_{int(time.time())}")
+
         # Collect all image inputs from both 'image_url' and 'images' list
         raw_inputs = []
         if request.image_url:
@@ -108,16 +146,22 @@ async def generate_image(request: GenerateRequest):
         if result.image_data:
             # --- Local Logging: Save Artifacts ---
             try:
-                # 1. Create Request Folder
-                req_id = f"req_{int(time.time()*1000)}"
-                req_dir = os.path.join(LOG_BASE_DIR, req_id)
+                # Use Transaction ID for folder name if possible to link with Next.js logs
+                # Fallback to session structure if needed, or create a new structure.
+                # Requirement: "Must parse and record Header X-Transaction-ID"
+                
+                # We will create a folder specific to this transaction inside the session log
+                # or a dedicated structure? User said: "Can locate specific log file via Transaction ID"
+                # Let's use the transaction ID as the folder name.
+                
+                req_dir_name = transaction_id if transaction_id else f"req_{int(time.time()*1000)}"
+                # Use the global LOG_BASE_DIR (Session ID) -> Transaction ID
+                req_dir = os.path.join(LOG_BASE_DIR, req_dir_name)
                 os.makedirs(req_dir, exist_ok=True)
 
                 # 2. Save Prompt & Metadata
                 metadata = request.model_dump()
-                # Remove large data from metadata if present (though images are separate strings)
-                # metadata['images'] = [f"<base64_len_{len(x)}>" for x in (metadata.get('images') or [])]
-                # metadata['image_url'] = "..." # Deprecated
+                metadata['transaction_id'] = transaction_id
                 
                 with open(os.path.join(req_dir, "prompt.json"), "w", encoding="utf-8") as f:
                     json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
@@ -132,7 +176,7 @@ async def generate_image(request: GenerateRequest):
                 with open(os.path.join(req_dir, "output.png"), "wb") as f:
                     f.write(result.image_data)
                 
-                print(f"✅ Saved generation log to {req_dir}")
+                print(f"✅ Saved generation log to {req_dir} (TxID: {transaction_id})")
 
             except Exception as log_err:
                 print(f"⚠️ Failed to save local log: {log_err}")
@@ -147,4 +191,5 @@ async def generate_image(request: GenerateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Host must be 127.0.0.1 for isolation
+    uvicorn.run(app, host="127.0.0.1", port=8000)

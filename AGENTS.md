@@ -2,8 +2,9 @@
 
 ## Project Structure & Module Organization
 - Frontend lives in `src`: Next.js App Router pages in `src/app`, shared UI in `src/components`, state in `src/store`, utilities in `src/utils`, assets/models in `src/assets`, and web workers in `src/workers`.
+- **Billing Proxy**: Located in `src/app/api/py/[...path]/route.ts`. It intercepts `/generate` requests to handle credit deduction and refunds.
 - Backend is a lightweight FastAPI service in `api_server.py`; shared Python helpers and configs sit alongside it (e.g., `debug_config.py`, `debug_sdk.py`).
-- Public static files (images, fonts) go in `public/`; keep generated outputs and large binaries out of git.
+- Public static files (images, fonts) go in `public/`; local logs for development go in `logs/` and `_generation_logs/` (both git-ignored).
 - Tooling and scripts: `scripts/dev-start.sh` boots Next with TurboPack and clears stale locks; `eslint.config.mjs`, `tsconfig.json`, and `package.json` define frontend tooling; `venv/` is the local Python environment (do not commit).
 
 ## Build, Test, and Development Commands
@@ -31,13 +32,20 @@
 - PRs should include: what changed, why, how to verify (commands or screenshots/GIFs for UI), and any environment/env-var prerequisites. Link related issues when available.
 - Before opening a PR: run `npm run lint`, ensure `npm run build` passes if relevant, and, when backend changes are present, verify `npm run gemini` starts cleanly.
 
-## Security & Configuration Tips
-- Required env vars: `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` (default `us-east4`), and `GOOGLE_APPLICATION_CREDENTIALS=./vertexai_key.json`.
-- Keep service account JSON keys local only; never commit them. For local runs, ensure the `venv` Python matches the repo’s expectation (>=3.10) and has `fastapi`, `uvicorn`, `python-dotenv`, `google-genai`, and `pydantic` installed.
+## 计费与积分逻辑 (Billing & Credits)
+- **扣费机制**: 在 `src/app/api/py` 路由中进行。根据 `image_size` 参数扣费：4K=5, 2K=2, 1K=1。
+- **异常退款**: 如果后端 `api_server.py` 返回非 200 或发生网络异常，代理层会自动执行 Prisma 事务退还积分。
+- **开发绕过**: 在 `src/auth.ts` 中，若 `NODE_ENV` 为 `development`，支持 `admin@example.com` / `bypass` 免密登录，且该账号不计费。
 
-## Gemini 调用规范（Vertex AI + google-genai）
-- 模型：统一使用 `gemini-3-pro-image-preview`，写回返回结构的 `model` 字段。
-- 客户端：`genai.Client(vertexai=True, project=GOOGLE_CLOUD_PROJECT, location=os.getenv("GOOGLE_CLOUD_LOCATION","global"))`，默认 `global`，可用环境变量覆盖。
-- 调用：使用 `client.models.generate_content`，构造 `contents=[types.Content(role="user", parts=[types.Part.from_text(prompt), *image_parts])]`，`config=types.GenerateContentConfig(response_modalities=["IMAGE"], image_config=types.ImageConfig(aspect_ratio=ratio, image_size=image_size))`。`image_parts` 由 `types.Part.from_bytes(...)/from_uri(...)` 生成。
-- 解析：遍历 `response.parts`（或 `candidate.content.parts`）取首个 `inline_data.data` 作为图片字节；未返回图片时记录错误并上抛。
-- 图生图：将输入图片转为 `types.Part` 与文本一起放入 `contents`，不再用 `images=`。若 URL 不可靠，可先拉取为字节再 `from_bytes`。保证返回 `GeminiBananaProImageOutput.image_data` 供 Gradio/测试复用。
+## Gemini 调用规范（Vertex AI + Raw API）
+- **模型**: 统一使用 `gemini-3-pro-image-preview`。
+- **协议**: 由于官方 SDK 对 native 2K/4K 分辨率的支持限制，后端已切换为通过 `requests` 直接调用 Vertex AI REST API。
+- **调用逻辑**: 
+    - 认证令牌通过 `google.auth.default()` 获取。
+    - 构造 `contents` array，将文本和图片（Base64 编码的 `inlineData`）组合。
+    - 在 `imageConfig` 中明确指定 `aspectRatio` 和 `imageSize`。
+- **日志**: `api_server.py` 会将每次请求的 prompt、输入图和输出图记录在 `_generation_logs` 下，按 Session ID 分类。
+
+## UI 关键组件
+- **`CreationDetailsModal`**: 位于 `src/components/library/`，用于在素材库中展示生成细节（Prompt、负向 Prompt、各种预设）。
+- **`Viewport3D`**: 位于 `src/components/studio/`，负责 3D 预览。模型位置经过微调 (`position={[0, 0.28, 0]}`) 以对齐地面。
