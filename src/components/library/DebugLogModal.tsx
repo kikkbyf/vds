@@ -1,8 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { LogSession, LogDetails, listLogSessions, getLogSessionDetails } from '@/actions/getDebugLogs';
 import { X, RefreshCw, FileText, Image as ImageIcon, ChevronRight } from 'lucide-react';
+
+interface LogSession {
+    id: string;
+    timestamp: string;
+}
+
+interface LogDetails {
+    id: string;
+    timestamp: string;
+    prompt: string;
+    inputs: string[];
+    output: string | null;
+}
 
 export default function DebugLogModal({ onClose }: { onClose: () => void }) {
     const [sessions, setSessions] = useState<LogSession[]>([]);
@@ -19,11 +31,10 @@ export default function DebugLogModal({ onClose }: { onClose: () => void }) {
     const loadSessions = async () => {
         setLoadingList(true);
         try {
-            const list = await listLogSessions();
-            setSessions(list);
-            if (list.length > 0 && !selectedSessionId) {
-                // Optionally select first
-                // setSelectedSessionId(list[0].id);
+            const res = await fetch('/api/admin/debug-logs');
+            if (res.ok) {
+                const list = await res.json();
+                setSessions(list);
             }
         } catch (e) {
             console.error(e);
@@ -42,8 +53,11 @@ export default function DebugLogModal({ onClose }: { onClose: () => void }) {
         const loadDetails = async () => {
             setLoadingDetails(true);
             try {
-                const data = await getLogSessionDetails(selectedSessionId);
-                setDetails(data);
+                const res = await fetch(`/api/admin/debug-logs?sessionId=${selectedSessionId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setDetails(data);
+                }
             } catch (e) {
                 console.error(e);
             } finally {
@@ -84,8 +98,8 @@ export default function DebugLogModal({ onClose }: { onClose: () => void }) {
                                     key={session.id}
                                     onClick={() => setSelectedSessionId(session.id)}
                                     className={`w-full text-left px-3 py-2.5 rounded-md text-xs font-mono transition-colors flex items-center justify-between ${selectedSessionId === session.id
-                                            ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                                            : 'text-white/60 hover:bg-white/5 hover:text-white/90'
+                                        ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                                        : 'text-white/60 hover:bg-white/5 hover:text-white/90'
                                         }`}
                                 >
                                     <span>{session.timestamp}</span>

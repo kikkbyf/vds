@@ -249,40 +249,9 @@ export const useStudioStore = create<StudioState>()(
                         // Refresh credits immediately
                         get().fetchCredits();
 
-                        // --- Auto-Save to Library ---
-                        // --- Auto-Save to Library ---
-                        // Switched to API Route for stability (Avoids "Failed to find Server Action")
-                        console.log("[Store] Triggering auto-save to library (API)...");
+                        // --- Auto-Save Handled by Server Proxy now ---
+                        console.log("[Store] Server-side auto-save handling expected.");
 
-                        fetch('/api/library/save', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                prompt: currentPrompt,
-                                aspectRatio: aspectRatio,
-                                imageSize: imageSize,
-                                shotPreset: shotPreset,
-                                lightingPreset: lightingPreset,
-                                focalLength: focalLength,
-                                guidance: guidanceScale,
-                                negative: negativePrompt,
-                                inputImages: uploadedImages,
-                                outputImage: data.image_data
-                            })
-                        })
-                            .then(async (res) => {
-                                if (res.ok) {
-                                    console.log("[Store] Auto-save success");
-                                } else {
-                                    const err = await res.json().catch(() => ({ error: res.statusText }));
-                                    console.error("[Store] Auto-save failed:", err);
-                                    alert("Warning: Failed to save image to library! " + (err.error || "Unknown error"));
-                                }
-                            })
-                            .catch(err => {
-                                console.error("[Store] Auto-save exception:", err);
-                                alert("Warning: Network error saving to library.");
-                            });
                     } else {
                         throw new Error('API returned success but no image data found.');
                     }

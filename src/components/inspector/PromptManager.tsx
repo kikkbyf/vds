@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { Save, ChevronDown, Check } from 'lucide-react';
-import { getPromptTemplates, savePromptTemplate } from '@/actions/prompts';
 
 interface PromptTemplate {
     id: string;
@@ -26,15 +25,27 @@ export default function PromptManager() {
     }, []);
 
     const loadTemplates = async () => {
-        const list = await getPromptTemplates();
-        setTemplates(list as any);
+        try {
+            const res = await fetch('/api/prompts');
+            if (res.ok) {
+                const list = await res.json();
+                setTemplates(list);
+            }
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const handleSave = async () => {
         if (!saveName.trim()) return;
         setIsSaving(true);
         try {
-            await savePromptTemplate(saveName, currentPrompt);
+            await fetch('/api/prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: saveName, content: currentPrompt })
+            });
+
             setSaveName('');
             setIsOpen(false);
             await loadTemplates(); // Refresh

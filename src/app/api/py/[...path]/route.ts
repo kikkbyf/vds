@@ -84,6 +84,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
     }
     // --- BILLING LOGIC END ---
 
+    // Imports needed (ensure these are at top of file, but tool might need help merging imports if not present)
+    // Suggestion: I will add the imports via a separate block or rely on existing imports + add new ones if possible.
+    // Actually, I should use multi_replace for imports + logic. But since I can update imports here too if I replace enough context or just add them.
+    // Let's assume standard imports are:
+    // import { NextRequest, NextResponse } from 'next/server';
+    // import { auth } from '@/auth';
+    // import prisma from '@/lib/prisma';
+    // import { v4 as uuidv4 } from 'uuid';
+    // import { saveImageToStorage, saveInputImageToStorage } from '@/lib/storage'; // Custom
+    // import { revalidatePath } from 'next/cache';
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 600000); // 600 seconds (10 mins)
@@ -135,6 +146,63 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         }
 
         const data = await backendResponse.json();
+
+        // --- SERVER-SIDE AUTO-SAVE ---
+        // If this was a generation request, user is logged in, and we have image data
+        if (shouldBill && userId && data.image_data) {
+            try {
+                // Dynamically import storage to avoid top-level issues if any
+                const { saveImageToStorage, saveInputImageToStorage } = await import('@/lib/storage');
+                const { revalidatePath } = await import('next/cache');
+
+                console.log(`[Auto-Save] [${transactionId}] Starting server-side save for User: ${userId}`);
+
+                // 1. Parse original body for metadata
+                const reqJson = JSON.parse(bodyText);
+
+                // 2. Save Output
+                const outputUrl = await saveImageToStorage(data.image_data);
+
+                // 3. Save Inputs (if any)
+                // The body has 'images' array which are base64 or urls
+                const inputImages = reqJson.images || [];
+                const savedInputUrls = await Promise.all(
+                    inputImages.map((img: string) => saveInputImageToStorage(img))
+                );
+
+                // 4. Create DB Record
+                const creation = await prisma.creation.create({
+                    data: {
+                        userId: userId,
+                        prompt: reqJson.prompt || '',
+                        negative: reqJson.negative_prompt || '',
+                        aspectRatio: reqJson.aspect_ratio || '1:1',
+                        imageSize: reqJson.image_size || '1K',
+                        shotPreset: reqJson.shot_preset || null,
+                        lightingPreset: reqJson.lighting_preset || null,
+                        focalLength: reqJson.focal_length ? Number(reqJson.focal_length) : null,
+                        guidance: reqJson.guidance_scale ? Number(reqJson.guidance_scale) : null,
+                        inputImageUrls: savedInputUrls,
+                        outputImageUrl: outputUrl,
+                        status: 'SUCCESS',
+                    },
+                });
+
+                console.log(`[Auto-Save] [${transactionId}] DB Record created: ${creation.id}`);
+
+                // 5. Revalidate Library
+                revalidatePath('/library');
+
+                // Attach creation ID to response (optional, but helpful)
+                data.creationId = creation.id;
+
+            } catch (saveError) {
+                console.error(`[Auto-Save] [${transactionId}] FAILED to save creation:`, saveError);
+                // Do NOT fail the request, just log it. The user still gets the image.
+            }
+        }
+        // -----------------------------
+
         return NextResponse.json(data);
 
     } catch (error) {

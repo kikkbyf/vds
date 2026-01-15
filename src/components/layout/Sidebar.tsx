@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Home, Image as ImageIcon, LogOut, Shield, Coins } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-import { getPendingUsers } from '@/actions/admin';
+// import { getPendingUsers } from '@/actions/admin';
 import { useStudioStore } from '@/store/useStudioStore';
 import dynamic from 'next/dynamic';
 
@@ -29,8 +29,11 @@ export default function Sidebar() {
 
     const checkPending = async () => {
         try {
-            const list = await getPendingUsers();
-            setPendingCount(list.length);
+            const res = await fetch('/api/admin/pending');
+            if (res.ok) {
+                const data = await res.json();
+                setPendingCount(data.count);
+            }
         } catch (e) {
             console.error(e);
         }
