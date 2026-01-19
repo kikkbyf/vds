@@ -52,6 +52,10 @@ model Creation {
   inputImageUrls String[] // JSON string or array of paths in /uploads
   outputImageUrl String   // Path in /uploads
   
+  // UX Grouping
+  sessionId     String?   // For grouping multiple generations into one "Session"
+  creationType  String?   // 'extraction' | 'digital_human' | 'standard'
+
   status        String    @default("SUCCESS")
   createdAt     DateTime  @default(now())
 }

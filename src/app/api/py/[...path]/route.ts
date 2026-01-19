@@ -171,8 +171,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
                 );
 
                 // 4. Create DB Record
-                // Use prompt from request (standard) or from backend response (persona/compiled)
+                // Logic: Check for recent session (within 5 minutes) to group
+                const SESSION_WINDOW_MS = 5 * 60 * 1000;
+                const now = new Date();
+
+                const recentCreation = await prisma.creation.findFirst({
+                    where: {
+                        userId: userId,
+                        createdAt: { gt: new Date(now.getTime() - SESSION_WINDOW_MS) },
+                        sessionId: { not: null }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    select: { sessionId: true }
+                });
+
+                let sessionId = recentCreation?.sessionId || require('uuid').v4(); // Reuse or New
+
+                // Infer Type
                 const finalPrompt = reqJson.prompt || data.compiled_prompt || '';
+                let creationType = 'standard';
+                const p = finalPrompt.toLowerCase();
+
+                if (p.includes('horizontal character sheet') || p.includes('2x2 grid image') || p.includes('character reference sheet')) {
+                    creationType = 'extraction';
+                } else if (p.includes('digital human') || p.includes('best quality')) {
+                    // Refine heuristics as needed
+                    creationType = 'digital_human';
+                }
+
+                // If this is an extraction, we should ensure the session is marked appropriately
+                // But since we can't update previous items easily here without extra query, we rely on the grouping logic.
+                // However, if we reuse a session, we are good.
 
                 const creation = await prisma.creation.create({
                     data: {
@@ -188,6 +217,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
                         inputImageUrls: savedInputUrls,
                         outputImageUrl: outputUrl,
                         status: 'SUCCESS',
+                        sessionId: sessionId,
+                        creationType: creationType
                     },
                 });
 

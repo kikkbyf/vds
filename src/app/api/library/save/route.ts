@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
         );
 
         // 3. Persist to DB
+        // Session Logic (Simplified for manual save: always new or minimal inference)
+        const creationType = (body.prompt || '').toLowerCase().includes('character sheet') ? 'extraction' : 'standard';
+
         const creation = await prisma.creation.create({
             data: {
                 userId: session.user.id,
@@ -44,6 +47,8 @@ export async function POST(req: NextRequest) {
                 inputImageUrls: inputs,
                 outputImageUrl: outputUrl,
                 status: 'SUCCESS',
+                creationType: creationType,
+                sessionId: require('uuid').v4() // Manual saves get their own session for now
             },
         });
 

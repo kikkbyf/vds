@@ -112,7 +112,15 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                         const latestImage = userCreations[0]?.outputImageUrl;
 
                         return (
-                            <div key={uid} className="folder-card" onClick={() => setViewingUserId(uid)}>
+                            <div
+                                key={uid}
+                                className="folder-card"
+                                onClick={() => {
+                                    console.log('Entering user lib:', uid);
+                                    setViewingUserId(uid);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="folder-preview">
                                     {latestImage ? (
                                         <div className="preview-image">
@@ -283,7 +291,6 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                                         onRemix={handleRemix}
                                         // Pass explicit handler to ensure it works
                                         onClick={() => {
-                                            console.log('Opening details for:', primaryItem.id);
                                             setSelectedId(primaryItem.id);
                                         }}
                                     />
@@ -298,6 +305,16 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                     );
                 })}
             </div>
+
+            {selectedCreation && (
+                <CreationDetailsModal
+                    creation={selectedCreation}
+                    // Pass all items from the same session
+                    relatedCreations={creations.filter(c => c.sessionId === selectedCreation.sessionId)}
+                    onClose={() => setSelectedId(null)}
+                    onRemix={handleRemix}
+                />
+            )}
 
             <style jsx>{`
                 .gallery-header {
