@@ -171,10 +171,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
                 );
 
                 // 4. Create DB Record
+                // Use prompt from request (standard) or from backend response (persona/compiled)
+                const finalPrompt = reqJson.prompt || data.compiled_prompt || '';
+
                 const creation = await prisma.creation.create({
                     data: {
                         userId: userId,
-                        prompt: reqJson.prompt || '',
+                        prompt: finalPrompt,
                         negative: reqJson.negative_prompt || '',
                         aspectRatio: reqJson.aspect_ratio || '1:1',
                         imageSize: reqJson.image_size || '1K',

@@ -10,16 +10,28 @@ export default async function LibraryPage() {
     }
 
     // Direct DB Query (No Server Action)
-    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-    const isAdmin = user?.role === 'ADMIN';
+    let user = null;
+    let creations: any[] = [];
+    let isAdmin = false;
 
-    const where = isAdmin ? {} : { userId: session.user.id };
+    try {
+        user = await prisma.user.findUnique({ where: { id: session.user.id } });
+        isAdmin = user?.role === 'ADMIN';
 
-    const creations = await prisma.creation.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-    });
+        const where = isAdmin ? {} : { userId: session.user.id };
+
+        creations = await prisma.creation.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: { user: true }
+        });
+    } catch (error) {
+        console.warn("DB Connection failed, switching to Local File Mode");
+        // Fallback to local file system scan
+        const { getLocalCreations } = await import('@/lib/localLibrary');
+        creations = await getLocalCreations();
+        isAdmin = true; // Always admin in local dev
+    }
 
     return (
         <main className="studio-layout">

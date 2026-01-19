@@ -1,3 +1,5 @@
+'use client';
+
 // Imports updated
 import { useState, useMemo } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
@@ -23,6 +25,8 @@ export interface FullCreation {
     outputImageUrl: string;
     status: string;
     createdAt: Date;
+    sessionId?: string;
+    creationType?: 'extraction' | 'digital_human' | 'standard';
     user?: {
         name: string | null;
         email: string;
@@ -54,7 +58,6 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
     const isMultiUser = userIds.length > 1;
 
     // Determine current view mode
-    // If only 1 user exists (Normal User scenario), auto-select them effectively skipping Level 1
     const effectiveViewingUserId = isMultiUser ? viewingUserId : (userIds[0] || null);
 
     const handleRemix = (id: string) => {
@@ -76,7 +79,28 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
         router.push('/');
     };
 
-    // LEVEL 1: USER DIRECTORY (Only if multiple users exist and none selected)
+    // 2. Group by Session (for the active user view)
+    const sessionGroups = useMemo(() => {
+        const displayed = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
+        if (!displayed) return [];
+
+        const groups: Record<string, FullCreation[]> = {};
+        displayed.forEach(c => {
+            // Fallback for items without sessionId -> group by 'legacy'
+            const sid = c.sessionId || 'legacy';
+            if (!groups[sid]) groups[sid] = [];
+            groups[sid].push(c);
+        });
+
+        // Sort sessions by date (newest first)
+        return Object.entries(groups).sort(([, aItems], [, bItems]) => {
+            const dateA = new Date(aItems[0].createdAt).getTime();
+            const dateB = new Date(bItems[0].createdAt).getTime();
+            return dateB - dateA;
+        });
+    }, [effectiveViewingUserId, userGroups]);
+
+    // LEVEL 1: USER DIRECTORY
     if (isMultiUser && !viewingUserId) {
         return (
             <div className="directory-container">
@@ -198,22 +222,16 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
         );
     }
 
-    // LEVEL 2: USER GALLERY (Shown if single user OR specific user selected)
+    // Determine current user info for header
     const displayedCreations = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
-    // If somehow empty but we have an ID (shouldn't happen often unless filtering changes)
-    if (!displayedCreations) return <div className="p-8 text-center text-muted">No creations found.</div>;
-
-    // Get user info for header if in Admin "Drill-down" mode
-    const currentUserInfo = displayedCreations[0]?.user;
-
+    const currentUserInfo = displayedCreations?.[0]?.user;
     const selectedCreation = creations.find(c => c.id === selectedId);
 
-    if (creations.length === 0) {
+    if (!displayedCreations || displayedCreations.length === 0) {
         return (
             <div className="empty-state">
                 <h2>No creations yet</h2>
                 <p>Start generating in the Studio to build your library.</p>
-
                 <style jsx>{`
                     .empty-state {
                         height: 60vh;
@@ -247,24 +265,38 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                 </div>
             )}
 
-            <div className="masonry-container">
-                {displayedCreations.map((creation) => (
-                    <div key={creation.id} className="masonry-item">
-                        <CreationCard
-                            item={creation}
-                            onRemix={handleRemix}
-                            onClick={() => setSelectedId(creation.id)}
-                        />
-                    </div>
-                ))}
+            <div className="sessions-list">
+                {sessionGroups.map(([sessionId, items]) => {
+                    // Identify primary item: first 'digital_human' or fallback to first item
+                    const primaryItem = items.find(i => i.creationType === 'digital_human') || items[0];
 
-                {selectedCreation && (
-                    <CreationDetailsModal
-                        creation={selectedCreation}
-                        onClose={() => setSelectedId(null)}
-                        onRemix={handleRemix}
-                    />
-                )}
+                    return (
+                        <div key={sessionId} className="session-block">
+                            <div className="grid-item">
+                                {/* Wrap in a clickable container to ensure click handling works regardless of child structure */}
+                                <div
+                                    className="card-click-wrapper"
+                                    style={{ position: 'relative', zIndex: 1 }}
+                                >
+                                    <CreationCard
+                                        item={primaryItem}
+                                        onRemix={handleRemix}
+                                        // Pass explicit handler to ensure it works
+                                        onClick={() => {
+                                            console.log('Opening details for:', primaryItem.id);
+                                            setSelectedId(primaryItem.id);
+                                        }}
+                                    />
+                                    {items.length > 1 && (
+                                        <div className="stack-badge">
+                                            <div className="stack-count">+{items.length - 1}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             <style jsx>{`
@@ -275,6 +307,9 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                     justify-content: space-between;
                     align-items: center;
                     background: var(--bg-app);
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
                 }
                 .back-btn {
                     display: flex;
@@ -300,24 +335,40 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
                 .user-context .label { color: var(--text-secondary); }
                 .user-context .value { font-weight: 600; color: var(--accent-blue); }
 
-                .masonry-container {
+                /* GRID LAYOUT FOR SESSIONS */
+                .sessions-list {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                    gap: 24px;
                     padding: 24px;
-                    column-count: 4;
-                    column-gap: 20px;
                 }
-                .masonry-item {
-                    break-inside: avoid;
-                    margin-bottom: 20px;
+
+                .session-block {
+                    position: relative;
+                }
+
+                .grid-item {
+                    position: relative;
+                }
+
+                .stack-badge {
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: rgba(0,0,0,0.7);
+                    color: white;
+                    border-radius: 12px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    backdrop-filter: blur(4px);
+                    border: 1px solid rgba(255,255,255,0.2);
+                    pointer-events: none;
+                    z-index: 5;
                 }
                 
-                @media (max-width: 1400px) {
-                    .masonry-container { column-count: 3; }
-                }
-                @media (max-width: 1000px) {
-                    .masonry-container { column-count: 2; }
-                }
                 @media (max-width: 600px) {
-                    .masonry-container { column-count: 1; }
+                    .sessions-list { grid-template-columns: 1fr; }
                 }
             `}</style>
         </div>

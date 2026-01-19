@@ -89,6 +89,80 @@ class GenerateRequest(BaseModel):
     guidance_scale: float = 60.0
     enhance_prompt: bool = True
 
+# --- Persona Flow Endpoints ---
+from src.interface.types.persona_types import DigitalPersona, InterpretRequest, GeneratePersonaRequest
+from src.services.gemini_text_service import GeminiTextService
+from src.services.prompt_compiler import PromptCompiler
+
+text_service = GeminiTextService()
+
+@app.post("/interpret")
+async def interpret_persona(request: InterpretRequest):
+    try:
+        persona = text_service.interpret_persona(request.user_input)
+        return persona
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_persona")
+async def generate_persona(request: GeneratePersonaRequest, raw_request: Request):
+    try:
+        # Compiler: JSON -> Professional Prompt
+        compiled_prompt = PromptCompiler.compile(request.persona)
+        
+        # Capture Transaction ID for Logging (Shared Logic with /generate)
+        transaction_id = raw_request.headers.get("X-Transaction-ID", f"unknown_{int(time.time())}")
+        
+        # Reuse existing Image Service (Text-to-Image Flow)
+        input_data = GeminiBananaProTextToImageInput(
+            prompt=compiled_prompt,
+            ratio=request.aspect_ratio,
+            image_size=request.image_size,
+            negative_prompt="low quality, bad anatomy, worst quality, unrealistic, cartoon, anime", # Standard negative
+            guidance_scale=60.0,
+            enhance_prompt=False # Compiler does the job
+        )
+        
+        result = await service.generate_image_from_text(input_data)
+
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.error or "Generation failed")
+        
+        if result.image_data:
+            # --- Local Logging: Save Artifacts ---
+            try:
+                req_dir_name = transaction_id if transaction_id else f"req_{int(time.time()*1000)}"
+                req_dir = os.path.join(LOG_BASE_DIR, req_dir_name)
+                os.makedirs(req_dir, exist_ok=True)
+                
+                # Save Metadata (The original JSON)
+                with open(os.path.join(req_dir, "persona.json"), "w", encoding="utf-8") as f:
+                    f.write(request.persona.model_dump_json(indent=2))
+
+                # Save Compiled Prompt
+                with open(os.path.join(req_dir, "prompt_compiled.txt"), "w", encoding="utf-8") as f:
+                    f.write(compiled_prompt)
+
+                # Save Output Image
+                with open(os.path.join(req_dir, "output.png"), "wb") as f:
+                    f.write(result.image_data)
+                
+                print(f"✅ Saved persona log to {req_dir} (TxID: {transaction_id})")
+
+            except Exception as log_err:
+                print(f"⚠️ Failed to save local log: {log_err}")
+
+            b64_img = base64.b64encode(result.image_data).decode('utf-8')
+            return {
+                "image_data": f"data:image/png;base64,{b64_img}",
+                "compiled_prompt": compiled_prompt
+            }
+            
+        raise HTTPException(status_code=500, detail="No image data returned")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/generate")
 async def generate_image(request: GenerateRequest, raw_request: Request):
     try:

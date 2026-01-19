@@ -73,6 +73,9 @@ export default function Sidebar() {
                     <Link href="/library" className={`nav-item ${isActive('/library') ? 'active' : ''}`} title="My Library">
                         <ImageIcon size={20} />
                     </Link>
+                    <Link href="/persona" className={`nav-item ${isActive('/persona') ? 'active' : ''}`} title="数字人制造">
+                        <span className="text-xl">👤</span>
+                    </Link>
 
                     {isAdmin && (
                         <button

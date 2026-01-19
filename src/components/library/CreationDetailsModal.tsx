@@ -1,28 +1,44 @@
-'use client';
-
-import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders } from 'lucide-react';
-
+// Imports updated
+import { useState, useEffect } from 'react';
+import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders, Layers } from 'lucide-react';
 import { FullCreation } from '@/app/library/LibraryGrid';
 
 interface CreationDetailsModalProps {
     creation: FullCreation;
+    relatedCreations?: FullCreation[];
     onClose: () => void;
     onRemix: (id: string) => void;
 }
 
-export default function CreationDetailsModal({ creation, onClose, onRemix }: CreationDetailsModalProps) {
+export default function CreationDetailsModal({ creation, relatedCreations = [], onClose, onRemix }: CreationDetailsModalProps) {
+    // Local state to handle switching between related assets within the modal
+    const [activeCreation, setActiveCreation] = useState<FullCreation>(creation);
+
+    // Reset when the main prop changes
+    useEffect(() => {
+        setActiveCreation(creation);
+    }, [creation]);
+
     const handleCopyPrompt = () => {
-        navigator.clipboard.writeText(creation.prompt);
+        navigator.clipboard.writeText(activeCreation.prompt);
     };
 
     const handleDownload = () => {
         const link = document.createElement('a');
-        link.href = creation.outputImageUrl;
-        link.download = `VDS-${creation.id}.png`;
+        link.href = activeCreation.outputImageUrl;
+        link.download = `VDS-${activeCreation.id}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
+
+    // Filter related items: Extractions and the Main one (if needed for context)
+    // We want to list "Technical Assets" specifically
+    const extractions = relatedCreations.filter(c => c.creationType === 'extraction');
+    const hasExtractions = extractions.length > 0;
+
+    // Also identify the "main" digital human(s) to allow switching back
+    const digitalHumans = relatedCreations.filter(c => c.creationType === 'digital_human' || c.creationType === 'standard');
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -36,19 +52,27 @@ export default function CreationDetailsModal({ creation, onClose, onRemix }: Cre
                     <div className="image-section">
                         <div className="image-container">
                             <img
-                                src={creation.outputImageUrl}
+                                src={activeCreation.outputImageUrl}
                                 alt="Creation"
                                 className="main-image"
                             />
                         </div>
                         <div className="action-bar">
-                            <button className="primary-btn" onClick={() => onRemix(creation.id)}>
+                            <button className="primary-btn" onClick={() => onRemix(activeCreation.id)}>
                                 <RefreshCw size={16} /> Remix
                             </button>
                             <button className="secondary-btn" onClick={handleDownload}>
                                 <Download size={16} /> Download
                             </button>
                         </div>
+
+                        {/* Type Badge Overlay */}
+                        {activeCreation.creationType === 'extraction' && (
+                            <div className="type-badge extraction">Technical Extraction</div>
+                        )}
+                        {activeCreation.creationType === 'digital_human' && (
+                            <div className="type-badge persona">Digital Human</div>
+                        )}
                     </div>
 
                     {/* Right: Details */}
@@ -57,25 +81,64 @@ export default function CreationDetailsModal({ creation, onClose, onRemix }: Cre
                             <h2>Creation Details</h2>
                             <div className="meta-row">
                                 <span className="meta-tag">
-                                    <Calendar size={12} /> {new Date(creation.createdAt).toLocaleString()}
+                                    <Calendar size={12} /> {new Date(activeCreation.createdAt).toLocaleString()}
                                 </span>
                                 <span className="meta-tag">
-                                    <ImageIcon size={12} /> {creation.imageSize} ({creation.aspectRatio})
+                                    <ImageIcon size={12} /> {activeCreation.imageSize} ({activeCreation.aspectRatio})
                                 </span>
                             </div>
                         </header>
 
+                        {/* SESSION STACK NAVIGATOR */}
+                        {relatedCreations.length > 1 && (
+                            <div className="detail-group">
+                                <label><Layers size={10} style={{ marginRight: 4 }} /> Session Objects</label>
+                                <div className="assets-grid">
+                                    {/* Digital Humans */}
+                                    {digitalHumans.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className={`asset-thumb ${activeCreation.id === item.id ? 'active' : ''}`}
+                                            onClick={() => setActiveCreation(item)}
+                                            title="Digital Human"
+                                        >
+                                            <img src={item.outputImageUrl} alt="Digital Human" />
+                                            <div className="asset-type-indicator persona"></div>
+                                        </div>
+                                    ))}
+
+                                    {/* Separator if both exist */}
+                                    {digitalHumans.length > 0 && extractions.length > 0 && (
+                                        <div className="asset-divider"></div>
+                                    )}
+
+                                    {/* Extractions */}
+                                    {extractions.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className={`asset-thumb ${activeCreation.id === item.id ? 'active' : ''}`}
+                                            onClick={() => setActiveCreation(item)}
+                                            title="Technical Extraction"
+                                        >
+                                            <img src={item.outputImageUrl} alt="Extraction" />
+                                            <div className="asset-type-indicator extraction"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="detail-group">
                             <label>Prompt</label>
                             <div className="prompt-box">
-                                <p>{creation.prompt}</p>
+                                <p>{activeCreation.prompt}</p>
                                 <button className="copy-btn" onClick={handleCopyPrompt} title="Copy Prompt">
                                     <Copy size={14} />
                                 </button>
                             </div>
-                            {creation.negative && (
+                            {activeCreation.negative && (
                                 <div className="negative-box">
-                                    <span className="label">Negative:</span> {creation.negative}
+                                    <span className="label">Negative:</span> {activeCreation.negative}
                                 </div>
                             )}
                         </div>
@@ -338,6 +401,71 @@ export default function CreationDetailsModal({ creation, onClose, onRemix }: Cre
                 @media (max-width: 900px) {
                     .modal-grid { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
                     .image-section { padding: 20px; }
+                }
+
+                .type-badge {
+                    position: absolute;
+                    top: 20px;
+                    left: 20px;
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    z-index: 10;
+                    backdrop-filter: blur(8px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                }
+                .type-badge.extraction {
+                    background: rgba(16, 185, 129, 0.9);
+                    color: #fff;
+                    border: 1px solid rgba(255,255,255,0.2);
+                }
+                .type-badge.persona {
+                    background: rgba(59, 130, 246, 0.9);
+                    color: #fff;
+                    border: 1px solid rgba(255,255,255,0.2);
+                }
+
+                .assets-grid {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                    margin-top: 8px;
+                }
+
+                .asset-thumb {
+                    width: 70px;
+                    height: 70px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    border: 2px solid transparent;
+                    position: relative;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .asset-thumb:hover { transform: translateY(-2px); }
+                .asset-thumb.active { border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+
+                .asset-thumb img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+
+                .asset-type-indicator {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    height: 4px;
+                }
+                .asset-type-indicator.persona { background: #3b82f6; }
+                .asset-type-indicator.extraction { background: #10b981; }
+
+                .asset-divider {
+                    width: 1px;
+                    background: var(--border-color);
+                    margin: 0 4px;
                 }
             `}</style>
         </div>

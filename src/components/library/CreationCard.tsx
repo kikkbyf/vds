@@ -93,7 +93,7 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
                 <p className="prompt-text">{item.prompt}</p>
                 <div className="meta">
                     <Clock size={11} />
-                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                    <span suppressHydrationWarning>{new Date(item.createdAt).toLocaleDateString()}</span>
                 </div>
             </div>
 
