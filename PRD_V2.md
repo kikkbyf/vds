@@ -1,104 +1,112 @@
-# Virtual Digital Studio (VDS) 2.0 - 产品需求文档 (PRD)
+# Virtual Digital Studio (VDS) - 产品需求文档 (PRD)
 
-**版本**: v3.0 (2026-01-13)  
-**状态**: 草案  
+**版本**: v4.0 (2026-01-20 18:01)  
+**状态**: 正式更新  
+**更新日期**: 2026.1.20
 
 ---
 
 ## 1. 项目概述 (Project Overview)
-**Virtual Digital Studio (VDS)** 是一个结合 3D 仿真与生成式 AI (Gemini 3 Pro) 的摄影工具。其主要目的是通过数字化的方式模拟摄影棚拍摄流程，降低商业摄影的设备与场地成本。用户可以在 3D 视口中配置光源、相机参数及资产，并生成高分辨率的图像。
+**Virtual Digital Studio (VDS)** 是一款基于 **Next.js 16** 和 **FastAPI** 构建的摄影工作室级 AI 图像生成平台。通过集成 **Three.js** 3D 仿真环境与 **Google Vertex AI (Gemini 3 Pro)**，VDS 支持用户在虚拟影棚中精确布置灯光、调整相机参数，并生成原生 4K/2K 超高清摄影作品。它通过数字化的方式模拟真实的摄影棚拍摄流程，大幅降低商业摄影的成本。
 
 ---
 
-## 2. 目标人群 (Target Audience)
+## 2. 技术栈 (Tech Stack)
 
-| 目标人群 | 核心需求 | 解决方案 |
-| :--- | :--- | :--- |
-| **电商从业者** | 降低模特拍摄成本及周期。 | 通过 3D 模型与产品图组合，生成展示图片。 |
-| **服装设计师** | 快速验证设计方案的视觉效果。 | 在 3D 影棚中动态调整视角，观察成衣视觉表现。 |
-| **摄影/美术指导** | 提高实景拍摄前的方案沟通效率。 | 作为可视化工具，预先确定布光及相机参数。 |
-| **个人创作者** | 在有限条件下获取影棚级视觉效果。 | 利用 AI 模拟专业影棚的布光与生成。 |
+### 2.1 前端 (Frontend)
+- **框架**: Next.js 16.1.1 (App Router + Turbopack)
+- **渲染**: React 19.2.3
+- **3D 引擎**: Three.js, React Three Fiber (@react-three/fiber), Drei (@react-three/drei)
+- **状态管理**: Zustand 5.0.9 (用于持久化灯光、配置及用户状态)
+- **组件库**: Lucide React (图标), Vanilla CSS (模块化方案)
+- **客户端逻辑**: 背景移除 (@imgly/background-removal), ONNX Runtime Web
 
----
+### 2.2 后端 (Backend)
+- **语言**: Python 3.10+
+- **框架**: FastAPI
+- **运行时**: Uvicorn
+- **核心服务**: 
+  - `GeminiImageService`: 封装 Vertex AI REST API，支持 Image-to-Image 与 Text-to-Image。
+  - `GeminiTextService`: 调用 Gemini Flash 进行 Persona 角色解释。
+  - `PromptCompiler`: 将结构化参数编译为专业摄影提示词。
 
-## 3. 核心功能及当前进度 (Status & Features)
-
-### 3.1 当前实现 (Current Capabilities)
-当前版本已完成以下功能闭环：
-
-*   **✅ 3D 头部影棚 (3D Head Studio)**:
-    *   **✅ 实时视口**: 基于 Three.js 的模型渲染，支持 OrbitControls 观察。
-    *   **✅ 渲染模式**: 
-        *   ✅ `Textured`: 结合深度图的投影渲染。
-        *   ✅ `Clay`: 纯色模型，用于检查结构与阴影。
-        *   ✅ `Wireframe`: 几何边框，作为 AI 生成的结构约束。
-    *   **✅ 辅助工具**: 集成 GizmoHelper 控制坐标方位。
-
-*   **✅ AI 生成管线**:
-    *   **✅ 高分辨率输出**: 基于 Google Vertex AI REST API，支持原生 4K/2K 尺寸。
-    *   **✅ 构图还原**: 支持捕捉 3D 视口作为 AI 生成的结构参考（Viewport Capture）。
-    *   **✅ 深度处理**: 内置深度图计算，支持 2D 贴图的位移效果。
-
-*   **✅ 摄像机控制**:
-    *   ✅ 支持 24mm - 200mm 焦段模拟，同步视口视角。
-    *   ✅ 提供特写、全身等标准取景预设。
-
-### 3.2 v2.0 规划功能 (New in v2.0)
-
-#### 1. 布光控制系统 (Lighting Control)
-*   **交互式灯光**: 在 3D 场景中添加灯光操纵杆，支持位置调整。
-*   **光源类型**:
-    *   **柔光 (Soft Light)**: 使用区域光源，阴影边缘平滑。
-    *   **硬光 (Hard Light)**: 使用方向光源或点光源，阴影边界清晰。
-*   **参数调节**: 
-    *   **强度 (Intensity)**: 线性调节光照亮度。
-    *   **色温与色号**: 支持标准色温（K）与 Hex 颜色输入。
-
-#### 2. 全身模型与姿态同步 (Full-body & Pose)
-*   主体由头部模型扩展至全身模型。
-*   支持提取 3D 骨架信息用于生成约束，确保姿态一致性。
-
-#### 3. 资产集成 (Asset Integration)
-*   **产品叠加**: 支持上传眼镜、耳环等 PNG 图片，通过 3D 锚点定位至模型。
-*   **材质参考**: 通过 Style Reference 功能，将上传的服装图作为生成的参考。
+### 2.3 数据库与认证 (Database & Auth)
+- **ORM**: Prisma 5.21.1
+- **数据库**: PostgreSQL
+- **认证**: NextAuth.js (Auth.js v5 beta)
 
 ---
 
-## 4. 用户流程说明 (User Flow)
+## 3. 核心功能模块 (Core Modules)
 
-```mermaid
-graph TD
-    subgraph "当前流程 (v1.0)"
-    A1[上传参考图/载入 3D 模型] --> B1[调整视口角度/焦段]
-    B1 --> C1[选择渲染模式: Textured/Clay/Wire]
-    C1 --> D1[配置基础 Prompts]
-    D1 --> E1[一键截图并发送 4K 生成]
-    end
+### 3.1 3D 工作室 (Studio)
+- **Viewport3D**: 基于 Three.js 的实时渲染窗口，支持 `Clay` (粘土)、`Textured` (贴图)、`Wireframe` (线框) 三种模式。
+- **灯光控制器 (Inspector)**: 预设选择模式（如：伦勃朗光、蝴蝶光、柔光箱等），用于控制 AI 生成的布光风格。交互式调节为下阶段目标。
+- **相机模拟**: 支持从 24mm 到 200mm 的物理焦段模拟，并同步 3D 视口。
+- **截图生成**: 自动捕捉当前 3D 构图作为 AI 生成的结构约束 (Reference)。
 
-    subgraph "下一步流程 (v2.0)"
-    E1 --> F2[资产上传: 真实耳环/眼镜/服装]
-    F2 --> G2[交互布光: 调节光源位置/强度/控制柔硬]
-    G2 --> H2[主体扩展: 切换至全身场景 & 选定姿态]
-    H2 --> I2[发送高级生成请求]
-    I2 --> J2[结果验证 & 在线局部重绘]
-    end
+### 3.2 角色实验室 (Persona)
+- **AI 角色设计**: 利用 Gemini Flash 将用户简单的描述（如“金发北欧女性”）自动补全为包含年龄、种族、肤质细节、服装风格的完整 JSON 角色规格。
+- **提示词编译**: 自动将角色配置转换为符合 Gemini 3 Pro 审美的结构化 Prompt。
+
+### 3.3 作品库 (Library)
+- **瀑布流展示**: 查看所有历史生成结果。
+- **详情弹窗**: 支持图片自适应视口缩放 (3:4 比例优化)，支持 Remix (参数重用) 和 4K 下载。
+- **会话分组 (Session Logic)**: 支持将同一创作过程中的多次生成进行逻辑关联。
+
+### 3.4 管理后台 (Admin)
+- **用户管理**: 查看所有注册用户，支持审核、拒绝及拉黑功能。
+- **积分系统**: 
+  - **计费规则**: 1K 消耗 1 积分，2K 消耗 2 积分，4K 消耗 5 积分。
+  - **退款机制**: 生成失败自动通过 Prisma 事务退还积分。
+- **系统监控**: 查看实时生成日志及交易流向。
+
+---
+
+## 4. 目录结构 (Folder Hierarchy)
+
+```text
+fasionphotoeditor/
+├── prisma/                 # 数据库模型 (User, Creation, CreditLog, etc.)
+├── scripts/                # 自动化指令 (dev-start, migrate, create-admin)
+├── src/
+│   ├── app/                # Next.js 路由 (API, Library, Persona, Studio)
+│   ├── components/         # UI 组件 (layout, studio, library, UI 元素)
+│   ├── interface/          # TypeScript 类型定义
+│   ├── lib/                # Prisma 实例与共享库
+│   ├── services/           # Python 后端核心逻辑 (__pycache__, service.py)
+│   ├── store/              # Zustand 状态定义
+│   └── workers/            # Web Worker (如深度图计算)
+├── api_server.py           # FastAPI 入口
+├── Dockerfile              # 多阶段构建容器定义
+└── start.sh                # 生产环境/容器启动脚本
 ```
 
 ---
 
-## 5. 技术架构设计 (High-level)
+## 5. 数据库表结构 (Database Schema)
 
-*   **前端 (View)**: React 19 + Three.js (Fiber) 负责复杂的光线算力与 3D 渲染。
-*   **状态管理**: Zustand 2.0 持久化存储灯光配置、资产元数据。
-*   **后端 (API Server)**: FastAPI 负责处理资产上传与异步任务分发。
-*   **核心引擎**: Google Vertex AI (Gemini 3 Pro) 负责 100% 构图还原与高清生成。
+- **User**: 核心用户信息、角色权限、积分余额、审批状态。
+- **Creation**: 记录生成的完整快照，包含 Prompt、预设参数、输入输出图片 URL。
+- **CreditLog**: 记录每一笔积分变动（生成消耗、退款、管理员调整）。
+- **PromptTemplate**: 用户保存的常用提示词模版。
+- **SystemConfig**: 系统级配置开关。
+
+---
+
+## 6. 指令说明 (Commands)
+
+- **启动开发环境**: `npm run dev` (通过 scripts/dev-start.sh 启动 Next.js 9229 端口)
+- **启动后端服务**: `npm run gemini` (启动 FastAPI 8000 端口)
+- **数据库同步**: `npx prisma db push`
+- **生成管理**: `node scripts/create-admin.js`
 
 ---
 
-## 6. 路线图 (Roadmap)
-*   **Phase 1 (本月)**: 完善 3D 灯光控制台与颜色选择器。
-*   **Phase 2 (下月)**: 引入全身模型库与多姿态调节。
-*   **Phase 3 (未来)**: 支持自定义资产 Lora 微调训练，实现“一人一模特”的高端定制。
+## 7. 路线图与后续目标 (Roadmap)
+- **当前状态**: 已完成高分辨率生成管线、3D 灯光解耦、积分闭环系统。
+- **后续优化**: 引入全身动作同步 (Pose Control)、资产本地持久化加速、多人协作工作室。
 
 ---
-*制作: 奕帆*
+*制作: 奕帆 & AI Assistant*  
+*最后更新: 2026.01.20 18:01*

@@ -232,15 +232,19 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                     align-items: center;
                     justify-content: center;
                     position: relative;
-                    padding: 40px;
+                    padding: 32px;
+                    height: 100%;
+                    min-height: 0;
                 }
 
                 .image-container {
+                    flex: 1;
                     width: 100%;
-                    height: 100%;
+                    min-height: 0;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    overflow: hidden;
                 }
 
                 .main-image {
