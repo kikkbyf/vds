@@ -10,14 +10,32 @@ import WireframeProxy from './WireframeProxy';
 import { useFrame } from '@react-three/fiber';
 
 const CaptureRegistrar = () => {
-    const { gl } = useThree();
+    const { gl, scene, camera } = useThree();
     const setGetScreenshot = useStudioStore((state) => state.setGetScreenshot);
 
     useEffect(() => {
         setGetScreenshot(() => {
-            // Force a render if needed, or just capture current buffer.
-            // "preserveDrawingBuffer" is enabled in Canvas config.
-            return gl.domElement.toDataURL('image/png');
+            // 1. Create a temporary canvas to composite the image
+            const width = gl.domElement.width;
+            const height = gl.domElement.height;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const ctx = tempCanvas.getContext('2d');
+
+            if (!ctx) return null;
+
+            // 2. Fill with solid black background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, height);
+
+            // 3. Draw the WebGL canvas on top (transparent parts will show black)
+            // Note: Canvas must be created with `preserveDrawingBuffer: true`
+            ctx.drawImage(gl.domElement, 0, 0);
+
+            // 4. Return the composite image
+            return tempCanvas.toDataURL('image/png');
         });
     }, [gl, setGetScreenshot]);
 
