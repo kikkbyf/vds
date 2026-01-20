@@ -40,10 +40,12 @@ async function migrate() {
         }
 
         // 2. Infer Session ID
-        if (creation.userId !== lastUser || (timestamp - lastTime > SESSION_WINDOW_MS)) {
-            // New Session
-            currentSessionId = uuidv4();
-        }
+        // STRICT MODE: User requested "one by one separate" for legacy data.
+        currentSessionId = uuidv4();
+
+        // Update state
+        lastUser = creation.userId;
+        lastTime = timestamp;
 
         // Update state
         lastUser = creation.userId;

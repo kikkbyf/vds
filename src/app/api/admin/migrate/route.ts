@@ -53,14 +53,14 @@ export async function GET(req: NextRequest) {
             }
 
             // 2. Infer Session ID
-            // If user changed OR time gap > window, start new session
-            if (creation.userId !== lastUser || (timestamp - lastTime > SESSION_WINDOW_MS)) {
-                // Check if this creation already has a valid session ID? 
-                // To be safe and clean history: we overwrite to ensure perfect grouping.
-                // Or: if creation.sessionId exists, we use it? 
-                // Let's overwrite for the backfill to ensure consistency.
-                currentSessionId = uuidv4();
-            }
+            // STRICT MODE: User requested "one by one separate" for legacy data.
+            // We do NOT use time window grouping for historical backfill. 
+            // Every item gets its own unique session to preserve original "individual" state.
+            currentSessionId = uuidv4();
+
+            // Update state (kept for reference or if we revert to grouping)
+            lastUser = creation.userId;
+            lastTime = timestamp;
 
             // Update state
             lastUser = creation.userId;

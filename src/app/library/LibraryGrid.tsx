@@ -86,8 +86,8 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
 
         const groups: Record<string, FullCreation[]> = {};
         displayed.forEach(c => {
-            // Fallback for items without sessionId -> group by 'legacy'
-            const sid = c.sessionId || 'legacy';
+            // Fallback for items without sessionId -> use their own ID (one-by-one)
+            const sid = c.sessionId || c.id;
             if (!groups[sid]) groups[sid] = [];
             groups[sid].push(c);
         });
