@@ -2,14 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Image as ImageIcon, LogOut, Shield, Coins } from 'lucide-react';
+import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 // import { getPendingUsers } from '@/actions/admin';
 import { useStudioStore } from '@/store/useStudioStore';
+import { useAssetStore } from '@/store/useAssetStore';
 import dynamic from 'next/dynamic';
 
 const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
+const AssetManagerDrawer = dynamic(() => import('@/components/assets/AssetManagerDrawer'), { ssr: false });
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -76,6 +78,14 @@ export default function Sidebar() {
                     <Link href="/persona" className={`nav-item ${isActive('/persona') ? 'active' : ''}`} title="数字人制造">
                         <span className="text-xl">👤</span>
                     </Link>
+
+                    <button
+                        className={`nav-item ${useAssetStore(s => s.isDrawerOpen) ? 'active' : ''}`}
+                        onClick={() => useAssetStore.getState().toggleDrawer()}
+                        title="Asset Manager"
+                    >
+                        <FolderOpen size={20} />
+                    </button>
 
                     {isAdmin && (
                         <button
@@ -180,6 +190,7 @@ export default function Sidebar() {
                 `}</style>
             </aside>
             {showAdmin && <AdminPanelModal onClose={() => { setShowAdmin(false); checkPending(); }} />}
+            <AssetManagerDrawer />
         </>
     );
 }

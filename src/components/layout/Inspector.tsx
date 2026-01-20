@@ -7,13 +7,17 @@ import ImageUploader from './ImageUploader';
 import PromptPreview from './PromptPreview';
 import PromptManager from '../inspector/PromptManager';
 import GenerationProgressBar from '../studio/GenerationProgressBar';
-import { Layers, Box } from 'lucide-react';
+import { Layers, Box, FolderDown } from 'lucide-react';
+import { useAssetStore } from '@/store/useAssetStore';
 
 export default function Inspector() {
     const focalLength = useStudioStore((state) => state.focalLength);
     const setFocalLength = useStudioStore((state) => state.setFocalLength);
 
     const shotPreset = useStudioStore((state) => state.shotPreset);
+
+    // Asset Store
+    const groups = useAssetStore((state) => state.groups);
     const setShotPreset = useStudioStore((state) => state.setShotPreset);
 
     const lightingPreset = useStudioStore((state) => state.lightingPreset);
@@ -164,6 +168,52 @@ export default function Inspector() {
             {/* Assets / Upload */}
             <div className="group">
                 <label>Add References</label>
+
+                {/* Asset Group Import */}
+                <div style={{ marginBottom: 8, display: 'flex', gap: 4 }}>
+                    <button
+                        className="toggle-action"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        onClick={() => {
+                            const store = useAssetStore.getState();
+                            store.fetchGroups(); // Ensure fresh
+                            const groups = store.groups;
+
+                            // Simple Prompt for MVP (ideal: proper Modal)
+                            // In a real app we would use a Popover.
+                            // Here we just toggle the drawer? No, that's management.
+                            // Let's use a standard select if possible or just open Drawer for now?
+                            // "Import from Group" -> Let's show a select if groups exist.
+                            store.toggleDrawer(true);
+                        }}
+                    >
+                        <FolderDown size={14} /> Open Asset Manager
+                    </button>
+                </div>
+                {/* Quick Import Dropdown */}
+                <div style={{ marginBottom: 8 }}>
+                    <select
+                        className="config-select"
+                        style={{ width: '100%' }}
+                        onChange={(e) => {
+                            const groupId = e.target.value;
+                            if (!groupId) return;
+                            const group = useAssetStore.getState().groups.find(g => g.id === groupId);
+                            if (group && confirm(`Import ${typeof group.assets === 'object' ? (group.assets as any[]).length : 0} assets from "${group.name}"?`)) {
+                                (group.assets as any[]).forEach(asset => {
+                                    useStudioStore.getState().addUploadedImage(asset.src);
+                                });
+                                e.target.value = ""; // Reset
+                            }
+                        }}
+                    >
+                        <option value="">📂 Quick Import from Group...</option>
+                        {groups.map(g => (
+                            <option key={g.id} value={g.id}>{g.name} ({(g.assets as any[]).length})</option>
+                        ))}
+                    </select>
+                </div>
+
                 <ImageUploader />
             </div>
 

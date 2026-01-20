@@ -1,7 +1,8 @@
 'use client';
 
-import { RefreshCw, Clock, Download, Copy, User as UserIcon } from 'lucide-react';
+import { RefreshCw, Clock, Download, Copy, User as UserIcon, FolderPlus } from 'lucide-react';
 import Image from 'next/image';
+import { useAssetStore } from '@/store/useAssetStore'; // Store import
 
 interface CreationItem {
     id: string;
@@ -67,6 +68,23 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
                             title="Copy Prompt"
                         >
                             <Copy size={14} />
+                        </button>
+                        <button
+                            className="action-btn icon-btn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const { activeGroupId, addSystemAsset, toggleDrawer } = useAssetStore.getState();
+                                if (activeGroupId) {
+                                    addSystemAsset(activeGroupId, item.outputImageUrl, item.prompt);
+                                    // Optional: Toast here
+                                    alert('Added to group!'); // Temporary feedback
+                                } else {
+                                    toggleDrawer(true);
+                                }
+                            }}
+                            title="Add to Active Asset Group"
+                        >
+                            <FolderPlus size={14} />
                         </button>
                         <button
                             className="action-btn icon-btn"
