@@ -35,7 +35,7 @@ export default function LibraryContent({ creations, isAdmin }: { creations: any[
                 </header>
 
                 <div className="scroll-area">
-                    <LibraryGrid creations={creations} />
+                    <LibraryGrid creations={creations} isAdmin={isAdmin} />
                 </div>
             </main>
 

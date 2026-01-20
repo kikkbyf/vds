@@ -13,6 +13,7 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
         approved: boolean;
         credits: number;
         createdAt: Date | string;
+        lastActiveAt?: Date | string | null;
     }
 
     const [users, setUsers] = useState<User[]>([]);
@@ -217,10 +218,26 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {u.approved ?
-                                                            <span className="status-dot active" title="Active"></span> :
+                                                        {u.approved ? (
+                                                            (() => {
+                                                                const lastActive = u.lastActiveAt ? new Date(u.lastActiveAt).getTime() : 0;
+                                                                const now = new Date().getTime();
+                                                                // 30 minutes threshold
+                                                                const isOnline = (now - lastActive) < 30 * 60 * 1000;
+
+                                                                return (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <span
+                                                                            className={`status-dot ${isOnline ? 'active' : 'offline'}`}
+                                                                            title={isOnline ? `Online (Last active: ${new Date(lastActive).toLocaleTimeString()})` : 'Offline'}
+                                                                        ></span>
+                                                                        {isOnline && <span style={{ fontSize: '10px', color: 'var(--accent-green)' }}>Online</span>}
+                                                                    </div>
+                                                                );
+                                                            })()
+                                                        ) : (
                                                             <span className="status-dot pending" title="Pending Approval"></span>
-                                                        }
+                                                        )}
                                                     </td>
                                                     <td>
                                                         {editCreditsId === u.id ? (
@@ -429,6 +446,7 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                     border-radius: 50%;
                 }
                 .status-dot.active { background: var(--accent-green); box-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
+                .status-dot.offline { background: var(--text-muted); opacity: 0.5; }
                 .status-dot.pending { background: #eab308; }
 
                 .credit-display {

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
                 approved: true,
                 credits: true,
                 createdAt: true,
+                lastActiveAt: true,
             }
         });
         return NextResponse.json(users);

@@ -8,6 +8,8 @@ export const metadata: Metadata = {
 
 import { Providers } from '@/components/providers/Providers';
 
+import UserActivityTracker from '@/components/UserActivityTracker';
+
 export default function RootLayout({
   children,
 }: {
@@ -17,6 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
+          <UserActivityTracker />
           {children}
         </Providers>
       </body>

@@ -35,9 +35,10 @@ export interface FullCreation {
 
 interface LibraryGridProps {
     creations: FullCreation[];
+    isAdmin?: boolean;
 }
 
-export default function LibraryGrid({ creations }: LibraryGridProps) {
+export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridProps) {
     const setParamsFromCreation = useStudioStore((state) => state.setParamsFromCreation);
     const router = useRouter();
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -55,7 +56,9 @@ export default function LibraryGrid({ creations }: LibraryGridProps) {
     }, [creations]);
 
     const userIds = Object.keys(userGroups);
-    const isMultiUser = userIds.length > 1;
+    // If Admin, forces directory view if there are ANY users (even just 1) so they can see who it is.
+    // Or if there are multiple users naturally.
+    const isMultiUser = userIds.length > 1 || (isAdmin && userIds.length > 0);
 
     // Determine current view mode
     const effectiveViewingUserId = isMultiUser ? viewingUserId : (userIds[0] || null);
