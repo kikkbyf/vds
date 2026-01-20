@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const { id } = await params;
+
     const group = await prisma.assetGroup.findUnique({
-        where: { id: params.id },
+        where: { id },
     });
 
     if (!group) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -17,16 +19,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json(group);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const { id } = await params;
     const { name, assets } = await req.json();
 
     try {
         const group = await prisma.assetGroup.update({
             where: {
-                id: params.id,
+                id,
                 userId: session.user.id, // Security check: ensure own group
             },
             data: {
@@ -40,14 +43,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
+        const { id } = await params;
         await prisma.assetGroup.delete({
             where: {
-                id: params.id,
+                id,
                 userId: session.user.id,
             },
         });
