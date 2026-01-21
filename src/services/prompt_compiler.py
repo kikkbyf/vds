@@ -9,9 +9,15 @@ class PromptCompiler:
         """
         
         # 1. Subject Definition (Who)
+        if persona.meta.is_human_realistic:
+            # Logic A: Realistic Human -> Emphasize Ethnicity & Gender
+            subject_desc = f"{persona.profile.age} year old {persona.profile.ethnicity} {persona.profile.gender}"
+        else:
+            # Logic B: Fictional/Anthropomorphic -> Emphasize Morphological Base (stored in ethnicity)
+            subject_desc = f"{persona.profile.age} year old {persona.profile.ethnicity}"
+
         subject_block = (
-            f"A hyper-realistic, 8k resolution medium shot portrait of a {persona.profile.age} year old "
-            f"{persona.profile.ethnicity} {persona.profile.gender}. "
+            f"A hyper-realistic, 8k resolution medium shot portrait of a {subject_desc}. "
             f"Physique: {persona.body.body_build} build, {persona.body.height_vibe} stature."
         )
 

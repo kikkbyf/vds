@@ -36,6 +36,18 @@ class GeminiTextService:
         4. **Extraction**: If the user mentions specific known characters (e.g. 'Harry Potter', 'Iron Man'), put that in the 'additional_prompt' field.
         5. **Output Format**: You must output ONLY valid JSON matching the schema.
         6. **No Chit-Chat**: Do not output anything other than the JSON.
+
+        Field Filling Rules:
+        1. **`meta.is_human_realistic`**:
+            * Set to `true` ONLY if the character is a standard, real-world human (e.g., a doctor, a student).
+            * Set to `false` if the character is a fictional adaptation (e.g., SpongeBob, Hulk), a creature, a robot, or a stylized interpretation.
+
+        2. **`profile.ethnicity` Logic**:
+            * **IF `is_human_realistic` is true**: Fill with standard human ethnicity (e.g., "East Asian", "Scandinavian", "African American").
+            * **IF `is_human_realistic` is false**: **DO NOT** use human races. Instead, describe the **morphological base** or **concept**.
+            * *Example for SpongeBob:* "Anthropomorphic Sponge-like Entity"
+            * *Example for Avatar:* "Na'vi Humanoid"
+            * *Example for Elf:* "High-Fantasy Elven Figure"
         """
 
         prompt = f"User Intent: {user_text}"

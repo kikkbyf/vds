@@ -27,7 +27,12 @@ export interface PersonaStyle {
     lighting: string;
 }
 
+export interface PersonaMeta {
+    is_human_realistic: boolean;
+}
+
 export interface DigitalPersona {
+    meta: PersonaMeta;
     profile: PersonaProfile;
     body: PersonaBody;
     look: PersonaFace;

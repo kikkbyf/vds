@@ -25,7 +25,11 @@ class PersonaStyle(BaseModel):
     expression: str = Field(..., description="Facial expression and emotional vibe")
     lighting: str = Field(..., description="Lighting setup and atmosphere")
 
+class PersonaMeta(BaseModel):
+    is_human_realistic: bool = Field(..., description="True if the character is a standard real-world human; False if fictional, anthropomorphic, or creature-like.")
+
 class DigitalPersona(BaseModel):
+    meta: PersonaMeta
     profile: PersonaProfile
     body: PersonaBody
     look: PersonaFace
