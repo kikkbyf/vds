@@ -52,6 +52,10 @@ class GeminiTextService:
 
         prompt = f"User Intent: {user_text}"
 
+        # Prepare Schema
+        from src.lib.schema_utils import resolve_pydantic_schema
+        final_schema = resolve_pydantic_schema(DigitalPersona)
+
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
@@ -59,7 +63,7 @@ class GeminiTextService:
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     response_mime_type="application/json",
-                    response_schema=DigitalPersona,
+                    response_schema=final_schema,
                     temperature=0.7, # Allow some creativity for "Invention"
                 )
             )

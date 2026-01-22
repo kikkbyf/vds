@@ -29,9 +29,15 @@
   - `google-genai` (Google Official GenAI SDK)
 - **安装**:
   ```bash
+  # 1. 创建虚拟环境
   python3 -m venv venv
+  
+  # 2. 激活环境 (Mac/Linux)
   source venv/bin/activate
-  pip install fastapi uvicorn python-dotenv google-genai pydantic
+  # Windows: .\venv\Scripts\activate
+  
+  # 3. 安装依赖 (使用 requirements.txt 确保版本一致)
+  pip install -r requirements.txt
   ```
 
 ## 🔑 环境变量 (.env)
