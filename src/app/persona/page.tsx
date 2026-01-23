@@ -11,10 +11,20 @@ import SideMenu from '@/components/layout/Sidebar';
 
 export default function PersonaPage() {
   const [persona, setPersona] = useState<DigitalPersona | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isInterpreting, setIsInterpreting] = useState(false);
 
-  const handleMagicInput = async (text: string) => {
+  const handleMagicInput = async (text: string, image?: string) => {
+    if (image) {
+      // Image Upload Mode
+      setUploadedImage(image);
+      setPersona(null); // Clear generated persona as we are using custom image
+      return;
+    }
+
+    // Text Mode
     setIsInterpreting(true);
+    setUploadedImage(null); // Clear uploaded image
     try {
       const res = await fetch('/api/py/interpret', {
         method: 'POST',
@@ -58,7 +68,7 @@ export default function PersonaPage() {
                   <PersonaEditor persona={persona} setPersona={setPersona} />
                 ) : (
                   <div className="empty-state">
-                    等待智能输入...
+                    {uploadedImage ? '使用参考图模式 (DNA 编辑不可用)' : '等待智能输入...'}
                   </div>
                 )}
               </div>
@@ -70,7 +80,9 @@ export default function PersonaPage() {
                 {persona ? (
                   <p>{compilePrompt(persona)}</p>
                 ) : (
-                  <span className="placeholder">等待生成...</span>
+                  <span className="placeholder">
+                    {uploadedImage ? '参考图已就绪 (使用 Image-to-Image 模式)' : '等待生成...'}
+                  </span>
                 )}
               </div>
             </div>
@@ -79,7 +91,7 @@ export default function PersonaPage() {
           {/* Result Viewport */}
           <div className="main-viewport">
             <div className="bg-gradient" />
-            <PersonaResult persona={persona} />
+            <PersonaResult persona={persona} uploadedImage={uploadedImage} />
           </div>
         </div>
       </main>

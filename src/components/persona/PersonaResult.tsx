@@ -4,13 +4,25 @@ import { DigitalPersona } from '@/interface/types/persona_types';
 
 interface Props {
     persona: DigitalPersona | null;
+    uploadedImage?: string | null;
 }
 
-export function PersonaResult({ persona }: Props) {
+export function PersonaResult({ persona, uploadedImage }: Props) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
+
+    // Reset internal state if external props change (new generation/upload)
+    // Actually, we should be careful. If persona changes, resultImage cleared.
+    // If uploadedImage changes, we should probably clear extractedAssets if desired, but user might want to keep history?
+    // Let's rely on parent to clear if needed, or simple effect.
+    // For now, simple logic:
+
+    // Determine the effective image to show: Uploaded > Generated
+    // If uploadedImage is present, we are in "Image Mode".
+    const activeImage = uploadedImage || resultImage;
+    const isImageMode = !!uploadedImage;
 
     const handleGenerate = async () => {
         if (!persona) return;
@@ -45,7 +57,7 @@ export function PersonaResult({ persona }: Props) {
     };
 
     const handleExtract = async () => {
-        if (!resultImage) return;
+        if (!activeImage) return;
         setIsExtracting(true);
 
         const tasks = [
@@ -55,7 +67,7 @@ export function PersonaResult({ persona }: Props) {
                     prompt: VIEW_PROMPTS.HEADSHOT_GRID,
                     aspect_ratio: "1:1",
                     image_size: "4K",
-                    images: [resultImage],
+                    images: [activeImage],
                     // Use a recognizable prefix in negative prompt if needed, or keep standard
                 }
             },
@@ -65,7 +77,7 @@ export function PersonaResult({ persona }: Props) {
                     prompt: VIEW_PROMPTS.TURNAROUND_SHEET,
                     aspect_ratio: "4:3",
                     image_size: "4K",
-                    images: [resultImage]
+                    images: [activeImage]
                 }
             }
         ];
@@ -101,7 +113,7 @@ export function PersonaResult({ persona }: Props) {
         }
     };
 
-    if (!persona) {
+    if (!persona && !uploadedImage) {
         return null;
     }
 
@@ -112,18 +124,29 @@ export function PersonaResult({ persona }: Props) {
 
             {/* Left Pane: Original Persona */}
             <div className="pane-original">
-                <div className="control-bar">
-                    <div className="status-text">
-                        <span className="ready-text">准备生成。</span> 消耗: 1 积分
+                {!isImageMode && (
+                    <div className="control-bar">
+                        <div className="status-text">
+                            <span className="ready-text">准备生成。</span> 消耗: 1 积分
+                        </div>
+                        <button
+                            onClick={handleGenerate}
+                            disabled={isGenerating}
+                            className="gen-btn"
+                        >
+                            {isGenerating ? '渲染中...' : '生成 (1K)'}
+                        </button>
                     </div>
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isGenerating}
-                        className="gen-btn"
-                    >
-                        {isGenerating ? '渲染中...' : '生成 (1K)'}
-                    </button>
-                </div>
+                )}
+
+                {isImageMode && (
+                    <div className="control-bar image-mode-bar">
+                        <div className="status-text">
+                            <span className="ready-text">参考图已加载。</span>
+                        </div>
+                        <div className="badge">Image-to-Image</div>
+                    </div>
+                )}
 
                 <div className="canvas">
                     {isGenerating && (
@@ -133,8 +156,8 @@ export function PersonaResult({ persona }: Props) {
                         </div>
                     )}
 
-                    {resultImage ? (
-                        <img src={resultImage} alt="Generated Persona" className="result-img" />
+                    {activeImage ? (
+                        <img src={activeImage} alt="Generated Persona" className="result-img" />
                     ) : (
                         <div className="placeholder">
                             <div className="icon">📸</div>
@@ -144,7 +167,7 @@ export function PersonaResult({ persona }: Props) {
                 </div>
 
                 {/* Extraction Toolbar - Hide in Technical Mode to reduce clutter, or keep? */}
-                {resultImage && !extractedAssets && (
+                {activeImage && !extractedAssets && (
                     <div className="extraction-bar">
                         <div className="info">
                             <strong>工业级提取</strong>
@@ -271,6 +294,11 @@ export function PersonaResult({ persona }: Props) {
             font-weight: 700;
             box-shadow: 0 0 10px rgba(37,99,235,0.4);
         }
+        .image-mode-bar .badge {
+            background: #8b5cf6;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+        }
+        
         .tech-img {
             width: 100%;
             height: auto;
