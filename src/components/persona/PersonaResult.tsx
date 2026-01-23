@@ -12,6 +12,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
     const [isExtracting, setIsExtracting] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
+    const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
 
     // Reset internal state if external props change (new generation/upload)
     // Actually, we should be careful. If persona changes, resultImage cleared.
@@ -66,7 +67,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                 payload: {
                     prompt: VIEW_PROMPTS.HEADSHOT_GRID,
                     aspect_ratio: "1:1",
-                    image_size: "4K",
+                    image_size: resolution,
                     images: [activeImage],
                     // Use a recognizable prefix in negative prompt if needed, or keep standard
                 }
@@ -76,7 +77,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                 payload: {
                     prompt: VIEW_PROMPTS.TURNAROUND_SHEET,
                     aspect_ratio: "4:3",
-                    image_size: "4K",
+                    image_size: resolution,
                     images: [activeImage]
                 }
             }
@@ -171,19 +172,32 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                     <div className="extraction-bar">
                         <div className="info">
                             <strong>工业级提取</strong>
-                            <span>将当前形象转为 4K 技术资产</span>
+                            <span>将当前形象转为 {resolution} 技术资产</span>
                         </div>
-                        <button
-                            onClick={handleExtract}
-                            disabled={isExtracting}
-                            className="extract-btn"
-                        >
-                            {isExtracting ? (
-                                <span className="flex-center">
-                                    <span className="mini-spinner"></span> 提取中 (4K x2)...
-                                </span>
-                            ) : '✨ 一键生成视图'}
-                        </button>
+
+                        <div className="right-controls">
+                            <select
+                                className="resolution-select"
+                                value={resolution}
+                                onChange={(e) => setResolution(e.target.value as any)}
+                            >
+                                <option value="1K">1K</option>
+                                <option value="2K">2K</option>
+                                <option value="4K">4K</option>
+                            </select>
+
+                            <button
+                                onClick={handleExtract}
+                                disabled={isExtracting}
+                                className="extract-btn"
+                            >
+                                {isExtracting ? (
+                                    <span className="flex-center">
+                                        <span className="mini-spinner"></span> 提取中 ({resolution} x2)...
+                                    </span>
+                                ) : '✨ 一键生成视图'}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -194,7 +208,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                     {/* 1. Turnaround Sheet (Primary - Huge) */}
                     <div className="tech-asset primary">
                         <div className="asset-header">
-                            <span className="badge">4K</span> Turnaround Sheet (Full Body)
+                            <span className="badge">{resolution}</span> Turnaround Sheet (Full Body)
                         </div>
                         <img src={extractedAssets.turnaround} className="tech-img" />
                     </div>
@@ -202,7 +216,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                     {/* 2. Headshot Grid (Secondary - Independent) */}
                     <div className="tech-asset secondary">
                         <div className="asset-header">
-                            <span className="badge">4K</span> Technical Headshot Grid
+                            <span className="badge">{resolution}</span> Technical Headshot Grid
                         </div>
                         <img src={extractedAssets.headshot} className="tech-img" />
                     </div>
@@ -217,6 +231,10 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             gap: 24px;
             width: 100%;
             max-width: 600px;
+            
+            /* Add padding bottom to allow scrolling past the content */
+            padding-bottom: 80px;
+
             transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
         }
         .result-container.mode-technical {
@@ -329,13 +347,14 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         .gen-btn {
             background: var(--text-primary);
             color: black;
-            padding: 8px 24px;
+            padding: 8px 16px; /* Slightly reduced padding */
             border-radius: 8px;
             font-size: 14px;
             font-weight: 700;
             border: none;
             cursor: pointer;
             transition: all 0.2s;
+            white-space: nowrap; /* Prevent wrap */
         }
         .gen-btn:hover {
             background: white;
@@ -405,16 +424,20 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             background: linear-gradient(90deg, #111 0%, #000 100%);
             border: 1px solid #333;
             border-radius: 12px;
-            padding: 16px 20px;
+            padding: 12px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             animation: slideUp 0.5s ease-out;
+            gap: 12px; 
+            flex-wrap: wrap; /* allow wrapping on small screens */
         }
         .extraction-bar .info {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            flex: 1;
+            min-width: 120px;
         }
         .extraction-bar strong {
             color: #fff;
@@ -424,16 +447,41 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             color: #666;
             font-size: 11px;
         }
+        
+        .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .resolution-select {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .resolution-select:hover {
+            border-color: #666;
+            background: #2a2a2a;
+        }
+
         .extract-btn {
             background: #2563eb;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
+            white-space: nowrap;
         }
         .extract-btn:hover {
             background: #1d4ed8;
