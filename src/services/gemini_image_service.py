@@ -162,7 +162,11 @@ class GeminiImageService:
                 if not image_bytes:
                     raise ValueError("No image data found in response")
 
-                self._log_generation_assets(prompt, images, image_bytes)
+                # [DUPLICATE LOGGING DISABLED] 
+                # This service is usually called by api_server.py which handles its own structured logging
+                # to _generation_logs (supporting the Local Library). 
+                # Disabling this internal log to prevent double storage in 'logs/' folder.
+                # self._log_generation_assets(prompt, images, image_bytes)
 
                 return GeminiBananaProImageOutput(
                     success=True,

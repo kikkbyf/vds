@@ -70,3 +70,18 @@ htmlcov/
 # Local logs
 logs/
 _generation_logs/
+prisma/schema.local.prisma
+dev.db
+dev.db-journal
+.env.bak
+
+# Runtime logs
+*.log
+frontend_log.txt
+startup_log.txt
+
+# Local Uploads
+public/uploads/
+
+# Diagnosis Scripts
+scripts/diagnose_startup.py

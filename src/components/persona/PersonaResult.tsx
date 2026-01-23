@@ -57,31 +57,37 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         }
     };
 
-    const handleExtract = async () => {
+    const handleExtract = async (mode: 'all' | 'headshot' | 'turnaround' = 'all') => {
         if (!activeImage) return;
         setIsExtracting(true);
 
-        const tasks = [
-            {
+        const tasks = [];
+
+        if (mode === 'all' || mode === 'headshot') {
+            tasks.push({
                 name: 'Headshot Grid',
+                key: 'headshot',
                 payload: {
                     prompt: VIEW_PROMPTS.HEADSHOT_GRID,
                     aspect_ratio: "1:1",
                     image_size: resolution,
                     images: [activeImage],
-                    // Use a recognizable prefix in negative prompt if needed, or keep standard
                 }
-            },
-            {
+            });
+        }
+
+        if (mode === 'all' || mode === 'turnaround') {
+            tasks.push({
                 name: 'Turnaround Sheet',
+                key: 'turnaround',
                 payload: {
                     prompt: VIEW_PROMPTS.TURNAROUND_SHEET,
                     aspect_ratio: "4:3",
                     image_size: resolution,
                     images: [activeImage]
                 }
-            }
-        ];
+            });
+        }
 
         try {
             // Run in parallel
@@ -92,19 +98,21 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                     body: JSON.stringify(task.payload)
                 }).then(async res => {
                     if (!res.ok) throw new Error(`${task.name} failed`);
-                    return res.json();
+                    const data = await res.json();
+                    return { key: task.key, data: data.image_data };
                 })
             ));
 
             console.log("Extraction complete", results);
 
-            if (results[0]?.image_data && results[1]?.image_data) {
-                setExtractedAssets({
-                    headshot: results[0].image_data,
-                    turnaround: results[1].image_data
+            // Merge new results with existing assets
+            setExtractedAssets(prev => {
+                const newAssets: any = { ...prev };
+                results.forEach(r => {
+                    if (r.data) newAssets[r.key] = r.data;
                 });
-                // alert("成功提取 2 套 4K 视觉资产！已同步至作品库 (Library)。");
-            }
+                return newAssets as { headshot: string, turnaround: string };
+            });
 
         } catch (e: any) {
             console.error(e);
@@ -167,8 +175,8 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                     )}
                 </div>
 
-                {/* Extraction Toolbar - Hide in Technical Mode to reduce clutter, or keep? */}
-                {activeImage && !extractedAssets && (
+                {/* Extraction Toolbar */}
+                {activeImage && (
                     <div className="extraction-bar">
                         <div className="info">
                             <strong>工业级提取</strong>
@@ -186,16 +194,37 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                                 <option value="4K">4K</option>
                             </select>
 
+                            {/* [NEW] Individual Buttons */}
                             <button
-                                onClick={handleExtract}
+                                onClick={() => handleExtract('headshot')}
                                 disabled={isExtracting}
-                                className="extract-btn"
+                                className="extract-btn secondary"
+                                title="提取面部四视图"
+                            >
+                                👤 面部
+                            </button>
+
+                            <button
+                                onClick={() => handleExtract('turnaround')}
+                                disabled={isExtracting}
+                                className="extract-btn secondary"
+                                title="提取全身三视图"
+                            >
+                                🧍 全身
+                            </button>
+
+                            {/* Existing One-Click Button */}
+                            <button
+                                onClick={() => handleExtract('all')}
+                                disabled={isExtracting}
+                                className="extract-btn primary"
+                                title="一键提取所有视图"
                             >
                                 {isExtracting ? (
                                     <span className="flex-center">
-                                        <span className="mini-spinner"></span> 提取中 ({resolution} x2)...
+                                        <span className="mini-spinner"></span> 提取中...
                                     </span>
-                                ) : '✨ 一键生成视图'}
+                                ) : '✨ 一键生成'}
                             </button>
                         </div>
                     </div>
@@ -206,20 +235,24 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             {extractedAssets && (
                 <div className="pane-technical">
                     {/* 1. Turnaround Sheet (Primary - Huge) */}
-                    <div className="tech-asset primary">
-                        <div className="asset-header">
-                            <span className="badge">{resolution}</span> Turnaround Sheet (Full Body)
+                    {extractedAssets.turnaround && (
+                        <div className="tech-asset primary">
+                            <div className="asset-header">
+                                <span className="badge">{resolution}</span> Turnaround Sheet (Full Body)
+                            </div>
+                            <img src={extractedAssets.turnaround} className="tech-img" />
                         </div>
-                        <img src={extractedAssets.turnaround} className="tech-img" />
-                    </div>
+                    )}
 
                     {/* 2. Headshot Grid (Secondary - Independent) */}
-                    <div className="tech-asset secondary">
-                        <div className="asset-header">
-                            <span className="badge">{resolution}</span> Technical Headshot Grid
+                    {extractedAssets.headshot && (
+                        <div className="tech-asset secondary">
+                            <div className="asset-header">
+                                <span className="badge">{resolution}</span> Technical Headshot Grid
+                            </div>
+                            <img src={extractedAssets.headshot} className="tech-img" />
                         </div>
-                        <img src={extractedAssets.headshot} className="tech-img" />
-                    </div>
+                    )}
                 </div>
             )}
 
@@ -424,34 +457,39 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             background: linear-gradient(90deg, #111 0%, #000 100%);
             border: 1px solid #333;
             border-radius: 12px;
-            padding: 12px 16px;
+            padding: 8px 12px; /* Reduce padding slightly */
             display: flex;
             align-items: center;
             justify-content: space-between;
             animation: slideUp 0.5s ease-out;
             gap: 12px; 
-            flex-wrap: wrap; /* allow wrapping on small screens */
+            flex-wrap: wrap; 
         }
         .extraction-bar .info {
             display: flex;
             flex-direction: column;
             gap: 2px;
-            flex: 1;
-            min-width: 120px;
+            /* Allow info to shrink if needed, but keep some width */
+            flex: 1 1 120px; 
         }
         .extraction-bar strong {
             color: #fff;
             font-size: 14px;
+            white-space: nowrap;
         }
         .extraction-bar span {
             color: #666;
             font-size: 11px;
+            white-space: nowrap;
         }
         
         .right-controls {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px; /* Tighten gap */
+            flex-wrap: wrap; /* Allow controls themselves to wrap if extremely tight */
+            justify-content: flex-end;
+            flex: 2 1 auto; /* Allow controls to take more space */
         }
 
         .resolution-select {
@@ -475,15 +513,26 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             background: #2563eb;
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 8px 12px; /* Smaller horizontal padding */
             border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .extract-btn:hover {
+        .extract-btn.secondary {
+            background: #333;
+            border: 1px solid #444;
+        }
+        .extract-btn.secondary:hover {
+            background: #444;
+            border-color: #666;
+        }
+        .extract-btn.primary:hover {
             background: #1d4ed8;
         }
         .extract-btn:disabled {

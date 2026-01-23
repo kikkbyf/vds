@@ -91,3 +91,21 @@ npm run dev
    - 点击作品卡片可弹出详情框，查看详细的 Prompt 和生成参数。
 4. **管理面板**:
    - 管理员可查看用户信息、积分余额及计费流水。
+
+## 📂 本地开发数据结构 (Local Development Data)
+在本地开发模式下，生成的图像和元数据会保存在 `_generation_logs` 目录中，用于替代云端数据库记录。
+
+### 目录结构
+```text
+_generation_logs/
+├── {SESSION_TIMESTAMP}/           # 启动会话 (如 2026-01-24_10-00-00)
+│   ├── {TRANSACTION_ID}/          # 单次生成记录
+│   │   ├── prompt.json            # [UTF-8] 原始提示词与参数
+│   │   ├── persona.json           # [UTF-8] 角色配置 (仅限 Persona 模式)
+│   │   ├── input_0.png            # 输入参考图 (如有)
+│   │   └── output.png             # 最终生成结果
+```
+
+### 关键文件说明
+- **prompt.json**: 包含完整的生成参数（Seed, Guidance, Prompt）。为防止中文乱码，系统强制使用 `ensure_ascii=False` 保存。
+- **output.png**: 原始生成的 PNG 图片，Web 界面通过读取此文件进行展示。

@@ -29,6 +29,7 @@
   - `GeminiImageService`: 封装 Vertex AI REST API，支持 Image-to-Image 与 Text-to-Image。
   - `GeminiTextService`: 调用 Gemini Flash 进行 Persona 角色解释。
   - `PromptCompiler`: 将结构化参数编译为专业摄影提示词。
+  - **本地存储**: 开发环境强制使用 `_generation_logs` 存储 JSON/PNG，JSON 必须保持 UTF-8 原文（不转义中文）。
 
 ### 2.3 数据库与认证 (Database & Auth)
 - **ORM**: Prisma 5.21.1

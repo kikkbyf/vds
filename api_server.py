@@ -137,7 +137,8 @@ async def generate_persona(request: GeneratePersonaRequest, raw_request: Request
                 
                 # Save Metadata (The original JSON)
                 with open(os.path.join(req_dir, "persona.json"), "w", encoding="utf-8") as f:
-                    f.write(request.persona.model_dump_json(indent=2))
+                    # Use json.dump with ensure_ascii=False to keep Chinese compliant
+                    json.dump(request.persona.model_dump(), f, indent=2, ensure_ascii=False)
 
                 # Save Compiled Prompt
                 with open(os.path.join(req_dir, "prompt_compiled.txt"), "w", encoding="utf-8") as f:

@@ -47,19 +47,43 @@ export async function getLocalCreations() {
                         hasExtraction = true;
                     }
 
+                    // Scan for input images (input_0.png, input_1.png, etc.)
+                    const inputImageUrls: string[] = [];
+                    // Simple check for up to 5 inputs
+                    for (let i = 0; i < 5; i++) {
+                        const inputName = `input_${i}.png`;
+                        if (fs.existsSync(path.join(txPath, inputName))) {
+                            const relInputKey = `${session}/${tx}/${inputName}`;
+                            inputImageUrls.push(`/api/local-image?key=${encodeURIComponent(relInputKey)}`);
+                        }
+                    }
+
                     sessionCreations.push({
                         id: tx,
                         sessionId: session, // Add session ID logic
                         creationType: creationType,
                         createdAt: txStat.ctime,
                         prompt: promptText,
+                        // [LOCAL-REMIX-FIX] Map all fields needed for Remix
+                        negative: promptData.negative_prompt,
+                        aspectRatio: promptData.aspect_ratio || '1:1',
+                        imageSize: promptData.image_size || '1K',
+                        shotPreset: promptData.shot_preset,
+                        lightingPreset: promptData.lighting_preset,
+                        focalLength: promptData.focal_length,
+                        guidance: promptData.guidance_scale,
+
+                        inputImageUrls: inputImageUrls, // Populate the inputs
+
                         outputImageUrl: localUrl,
                         status: 'COMPLETED',
-                        width: 1024, // Assumed
-                        height: 1024,
+                        width: promptData.original_width || 1024,
+                        height: promptData.original_height || 1024,
+                        // [LOCAL-STD] Standardize fields to match DB
+                        userId: 'dev-admin',
                         user: {
-                            name: 'Local Dev',
-                            email: 'dev@local',
+                            name: 'Admin',
+                            email: 'admin@example.com', // Match dev bypass email
                             image: null
                         }
                     });

@@ -28,8 +28,11 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                     // If no email/password provided (or specific bypass defaults), and we are local
                     if (isDev && (!email || !password || (email === 'admin@example.com' && password === 'bypass'))) {
                         console.log('⚡️ Using Dev Bypass Login');
+                        // [LOCAL-DEV-FIX] Try to find the real user ID to ensure DB relations (like Heartbeat) work
+                        const dbUser = await prisma.user.findUnique({ where: { email: 'admin@example.com' } });
+
                         return {
-                            id: 'dev-admin',
+                            id: dbUser?.id || 'dev-admin', // Use real ID if exists, else fallback
                             email: 'admin@example.com',
                             role: 'admin',
                             approved: true,
@@ -93,10 +96,16 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                 }
 
                 if ((!dbUser || !dbUser.approved) && token.sub !== 'dev-admin') {
-                    // Invalid/Unapproved user - destroy session effectively
-                    // NextAuth doesn't have a clean "invalidate" return type here easily 
-                    // allowing null user often triggers signout on client
-                    return { ...session, user: null as any };
+                    // [LOCAL-DEV-FIX] If we are in dev mode and DB check failed (dbUser is null) OR user exists but not approved,
+                    // we still want to allow access for development convenience.
+                    if (process.env.NODE_ENV === 'development' && (!dbUser || !dbUser.approved)) {
+                        console.warn(`[Dev Session] Auth check failed for ${token.sub} (Found: ${!!dbUser}, Approved: ${dbUser?.approved}), keeping session active.`);
+                        // Force admin permissions for dev
+                        dbUser = { role: 'admin', approved: true };
+                    } else {
+                        // Invalid/Unapproved user - destroy session effectively
+                        return { ...session, user: null as any };
+                    }
                 }
 
                 session.user.id = token.sub;

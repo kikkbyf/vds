@@ -203,6 +203,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
                 // But since we can't update previous items easily here without extra query, we rely on the grouping logic.
                 // However, if we reuse a session, we are good.
 
+                // Detect Local SQLite Mode
+                const isSQLite = process.env.DATABASE_URL?.startsWith('file:');
+
                 const creation = await prisma.creation.create({
                     data: {
                         userId: userId,
@@ -214,7 +217,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
                         lightingPreset: reqJson.lighting_preset || null,
                         focalLength: reqJson.focal_length ? Number(reqJson.focal_length) : null,
                         guidance: reqJson.guidance_scale ? Number(reqJson.guidance_scale) : null,
-                        inputImageUrls: savedInputUrls,
+                        // [LOCAL-DEV-FIX] Auto-serialize array for SQLite, keep array for Postgres
+                        inputImageUrls: isSQLite ? JSON.stringify(savedInputUrls) : (savedInputUrls as any),
                         outputImageUrl: outputUrl,
                         status: 'SUCCESS',
                         sessionId: sessionId,

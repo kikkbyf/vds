@@ -168,7 +168,7 @@ export const useStudioStore = create<StudioState>()(
                     negativePrompt: params.negative || '',
                     aspectRatio: params.aspectRatio,
                     imageSize: params.imageSize,
-                    uploadedImages: params.inputImageUrls,
+                    uploadedImages: params.inputImageUrls || [], // Safety fallback
 
                     // Optional overrides
                     ...(params.shotPreset && { shotPreset: params.shotPreset }),
