@@ -59,6 +59,11 @@ model Creation {
   creationType  String?   // 'extraction' | 'digital_human' | 'standard'
 
   status        String    @default("SUCCESS")
+  
+  // Admin Content Control
+  visible       Boolean   @default(true) 
+  deletedAt     DateTime? 
+
   createdAt     DateTime  @default(now())
 }
 

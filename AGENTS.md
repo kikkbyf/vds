@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## 永远回复用户中文。
+在思维过程中可以使用英文，执行计划、MD文档、包括代码注释都使用中文。永远回复用户中文。
+
 ## Project Structure & Module Organization
 - Frontend lives in `src`: Next.js App Router pages in `src/app`, shared UI in `src/components`, state in `src/store`, utilities in `src/utils`, assets/models in `src/assets`, and web workers in `src/workers`.
 - **Billing Proxy**: Located in `src/app/api/py/[...path]/route.ts`. It intercepts `/generate` requests to handle credit deduction and refunds.

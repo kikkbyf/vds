@@ -18,7 +18,19 @@ export default async function LibraryPage() {
         user = await prisma.user.findUnique({ where: { id: session.user.id } });
         isAdmin = user?.role === 'ADMIN';
 
-        const where = isAdmin ? {} : { userId: session.user.id };
+        const where: any = isAdmin ? {} : { userId: session.user.id };
+
+        // Non-admins (and arguably admins too, unless separate view) shouldn't see soft-deleted items by default
+        // But for "Hide" logic:
+        if (!isAdmin) {
+            where.visible = true;
+            where.deletedAt = null;
+        } else {
+            // Admins see everything, but we might want to filter soft-deleted by default unless in a special "trash" view?
+            // For now, let admins see everything but we'll visually mark them.
+            // Actually, let's hide deletedAt != null for everyone in the main grid unless requested.
+            where.deletedAt = null;
+        }
 
         creations = await prisma.creation.findMany({
             where,

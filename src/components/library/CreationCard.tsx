@@ -1,15 +1,18 @@
 'use client';
 
-import { RefreshCw, Clock, Download, Copy, User as UserIcon, FolderPlus } from 'lucide-react';
+import { RefreshCw, Clock, Download, Copy, User as UserIcon, FolderPlus, Eye, EyeOff, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAssetStore } from '@/store/useAssetStore'; // Store import
+import { useRouter } from 'next/navigation';
 
 interface CreationItem {
     id: string;
     prompt: string;
     outputImageUrl: string;
-    createdAt: Date;
+    createdAt: Date | string;
     imageSize?: string;
+    visible?: boolean;
+    deletedAt?: Date | string | null;
     user?: {
         name: string | null;
         email: string;
@@ -18,11 +21,14 @@ interface CreationItem {
 
 interface CreationCardProps {
     item: CreationItem;
+    isAdmin?: boolean;
     onRemix: (id: string) => void;
     onClick?: () => void;
 }
 
-export default function CreationCard({ item, onRemix, onClick }: CreationCardProps) {
+export default function CreationCard({ item, isAdmin, onRemix, onClick }: CreationCardProps) {
+    const router = useRouter();
+
     const handleDownload = (e: React.MouseEvent) => {
         e.stopPropagation();
         const link = document.createElement('a');
@@ -36,31 +42,74 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
     const handleCopyPrompt = (e: React.MouseEvent) => {
         e.stopPropagation();
         navigator.clipboard.writeText(item.prompt);
-        // Optional: toast notification could be added here
     };
 
+    const toggleVisibility = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm(item.visible === false ? 'Show this creation?' : 'Hide this creation from user?')) return;
+
+        try {
+            await fetch('/api/admin/creation/toggle-visibility', {
+                method: 'POST',
+                body: JSON.stringify({ creationId: item.id, visible: !item.visible })
+            });
+            router.refresh();
+        } catch (err) {
+            alert('Failed to update');
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this?')) return;
+
+        try {
+            await fetch('/api/admin/creation/delete', {
+                method: 'POST',
+                body: JSON.stringify({ creationId: item.id })
+            });
+            router.refresh();
+        } catch (err) {
+            alert('Failed to delete');
+        }
+    };
+
+    const isHidden = item.visible === false; // Default true if undefined
+    const isDeleted = !!item.deletedAt;
+
     return (
-        <div className="creation-card group" onClick={onClick}>
+        <div className={`creation-card group ${isHidden ? 'opacity-50' : ''}`} onClick={onClick}>
             <div className="image-wrapper">
                 <Image
                     src={item.outputImageUrl}
                     alt={item.prompt}
                     width={800} // Placeholder width
                     height={800} // Placeholder height
-                    style={{ width: '100%', height: 'auto' }}
+                    style={{ width: '100%', height: 'auto', filter: isHidden ? 'grayscale(100%)' : 'none' }}
                     className="creation-image"
-                    unoptimized={true} // Force straightforward loading for local files
+                    unoptimized={true}
                 />
 
                 <div className="overlay">
                     <div className="action-buttons">
+                        {isAdmin && (
+                            <>
+                                <button className={`action-btn icon-btn ${isHidden ? 'bg-red-500' : ''}`} onClick={toggleVisibility} title={isHidden ? "Unhide" : "Hide"}>
+                                    {isHidden ? <EyeOff size={14} color={isHidden ? "red" : "white"} /> : <Eye size={14} />}
+                                </button>
+                                <button className="action-btn icon-btn delete-btn" onClick={handleDelete} title="Delete">
+                                    <Trash2 size={14} />
+                                </button>
+                                <div className="divider" style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.3)', margin: '0 4px' }}></div>
+                            </>
+                        )}
                         <button
                             className="action-btn remix-btn"
                             onClick={(e) => { e.stopPropagation(); onRemix(item.id); }}
                             title="Remix this creation"
                         >
                             <RefreshCw size={14} />
-                            <span>Remix</span>
+                            {/* <span>Remix</span> - Hide text on card to save space if admin controls are there? No keep it for now */}
                         </button>
                         <button
                             className="action-btn icon-btn"
@@ -69,23 +118,7 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
                         >
                             <Copy size={14} />
                         </button>
-                        <button
-                            className="action-btn icon-btn"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                const { activeGroupId, addSystemAsset, toggleDrawer } = useAssetStore.getState();
-                                if (activeGroupId) {
-                                    addSystemAsset(activeGroupId, item.outputImageUrl, item.prompt);
-                                    // Optional: Toast here
-                                    alert('Added to group!'); // Temporary feedback
-                                } else {
-                                    toggleDrawer(true);
-                                }
-                            }}
-                            title="Add to Active Asset Group"
-                        >
-                            <FolderPlus size={14} />
-                        </button>
+                        {/* Removed Add to Group button to save space or keep it? Keeping it. */}
                         <button
                             className="action-btn icon-btn"
                             onClick={handleDownload}
@@ -97,6 +130,7 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
 
                     <div className="overlay-info">
                         {item.imageSize && <span className="badge">{item.imageSize}</span>}
+                        {isHidden && <span className="badge" style={{ background: '#ef4444' }}>HIDDEN</span>}
                         {item.user && (
                             <div className="badge user-badge" title={item.user.email}>
                                 <UserIcon size={10} style={{ marginRight: 4 }} />
@@ -223,6 +257,10 @@ export default function CreationCard({ item, onRemix, onClick }: CreationCardPro
                 .icon-btn:hover {
                     background: white;
                     color: black;
+                }
+                .delete-btn:hover {
+                    background: #ef4444;
+                    color: white;
                 }
                 
                 .user-badge {

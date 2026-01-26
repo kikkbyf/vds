@@ -1,18 +1,21 @@
 // Imports updated
 import { useState, useEffect } from 'react';
-import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders, Layers } from 'lucide-react';
+import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders, Layers, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { FullCreation } from '@/app/library/LibraryGrid';
+import { useRouter } from 'next/navigation';
 
 interface CreationDetailsModalProps {
     creation: FullCreation;
     relatedCreations?: FullCreation[];
     onClose: () => void;
     onRemix: (id: string) => void;
+    isAdmin?: boolean;
 }
 
-export default function CreationDetailsModal({ creation, relatedCreations = [], onClose, onRemix }: CreationDetailsModalProps) {
+export default function CreationDetailsModal({ creation, relatedCreations = [], onClose, onRemix, isAdmin }: CreationDetailsModalProps) {
     // Local state to handle switching between related assets within the modal
     const [activeCreation, setActiveCreation] = useState<FullCreation>(creation);
+    const router = useRouter();
 
     // Reset when the main prop changes
     useEffect(() => {
@@ -30,6 +33,37 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const toggleVisibility = async () => {
+        if (!confirm(activeCreation.visible === false ? 'Show this creation?' : 'Hide this creation from user?')) return;
+
+        try {
+            await fetch('/api/admin/creation/toggle-visibility', {
+                method: 'POST',
+                body: JSON.stringify({ creationId: activeCreation.id, visible: !activeCreation.visible })
+            });
+            // Update local state temporarily
+            setActiveCreation(prev => ({ ...prev, visible: !prev.visible }));
+            router.refresh();
+        } catch (err) {
+            alert('Failed to update');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm('Are you sure you want to delete this?')) return;
+
+        try {
+            await fetch('/api/admin/creation/delete', {
+                method: 'POST',
+                body: JSON.stringify({ creationId: activeCreation.id })
+            });
+            onClose(); // Close modal on delete
+            router.refresh();
+        } catch (err) {
+            alert('Failed to delete');
+        }
     };
 
     // Filter related items: Extractions and the Main one (if needed for context)
@@ -54,10 +88,21 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                             <img
                                 src={activeCreation.outputImageUrl}
                                 alt="Creation"
-                                className="main-image"
+                                className={`main-image ${activeCreation.visible === false ? 'grayscale' : ''}`}
                             />
                         </div>
                         <div className="action-bar">
+                            {isAdmin && (
+                                <>
+                                    <button className={`secondary-btn ${activeCreation.visible === false ? 'bg-red-500 text-white' : ''}`} onClick={toggleVisibility} style={activeCreation.visible === false ? { background: '#ef4444', color: 'white', borderColor: '#ef4444' } : {}}>
+                                        {activeCreation.visible === false ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        {activeCreation.visible === false ? 'Hidden' : 'Hide'}
+                                    </button>
+                                    <button className="secondary-btn" onClick={handleDelete} style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }} title="Delete">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </>
+                            )}
                             <button className="primary-btn" onClick={() => onRemix(activeCreation.id)}>
                                 <RefreshCw size={16} /> Remix
                             </button>
@@ -255,6 +300,7 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                     object-fit: contain;
                     border-radius: 4px;
                 }
+                .main-image.grayscale { filter: grayscale(100%); opacity: 0.8; }
 
                 .action-bar {
                     display: flex;
