@@ -5,59 +5,23 @@ import { FACE_SWAP_PROMPTS } from '@/lib/faceSwapPrompts';
 import { VIEW_PROMPTS } from '@/lib/viewPrompts';
 
 interface Props {
-    targetImage: string | null;
-    faceImage: string | null;
-    extraPrompt: string;
+    resultImage: string | null;
+    isGenerating: boolean;
 }
 
-export function FaceSwapResult({ targetImage, faceImage, extraPrompt }: Props) {
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [resultImage, setResultImage] = useState<string | null>(null);
+export function FaceSwapResult({ resultImage, isGenerating }: Props) {
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
-    const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K"); // Allow 4K output
+    const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
 
-    const canGenerate = targetImage && faceImage;
-
-    const handleFaceSwap = async () => {
-        if (!canGenerate) return;
-        setIsGenerating(true);
-        setResultImage(null);
-        setExtractedAssets(null); // Clear previous extractions on new swap
-
-        try {
-            const finalPrompt = `${FACE_SWAP_PROMPTS.MAIN}\n\nUSER EXTRA INSTRUCTION: ${extraPrompt || "None"}`;
-
-            const res = await fetch('/api/py/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: finalPrompt,
-                    images: [targetImage, faceImage], // Order matters: [Base, FaceRef]
-                    image_size: "1K", // Initial swap at 1K for speed? Or match original? Let's use 1K for now.
-                    aspect_ratio: "1:1", // Ideally we match target image ratio, but for MVP 1:1 is safe
-                    negative_prompt: "low quality, bad anatomy, worst quality, distortion, mutation"
-                }),
-            });
-
-            if (!res.ok) throw new Error('Face swap failed');
-            const data = await res.json();
-            setResultImage(data.image_data);
-
-        } catch (e: any) {
-            console.error(e);
-            alert(`Face swap failed: ${e.message}`);
-        } finally {
-            setIsGenerating(false);
-        }
-    };
+    // Reset extraction when resultImage changes? Optional, but good practice if new image comes.
+    // For now simple.
 
     const handleExtract = async (mode: 'all' | 'headshot' | 'turnaround' = 'all') => {
         if (!resultImage) return;
         setIsExtracting(true);
 
         const tasks = [];
-        // Reuse extraction prompts from VIEW_PROMPTS
         if (mode === 'all' || mode === 'headshot') {
             tasks.push({
                 name: 'Headshot', key: 'headshot',
@@ -99,26 +63,11 @@ export function FaceSwapResult({ targetImage, faceImage, extraPrompt }: Props) {
 
     const isTechnicalMode = !!extractedAssets;
 
-    if (!canGenerate && !resultImage) return null;
-
     return (
         <div className={`result-container ${isTechnicalMode ? 'mode-technical' : ''}`}>
 
             {/* Left Pane: Result or Placeholder */}
             <div className="pane-original">
-                <div className="control-bar">
-                    <div className="status-text">
-                        {canGenerate ? "双图已就绪。" : "等待素材..."}
-                    </div>
-                    <button
-                        onClick={handleFaceSwap}
-                        disabled={!canGenerate || isGenerating}
-                        className="gen-btn"
-                    >
-                        {isGenerating ? '换脸中...' : '开始换脸 (Face Swap)'}
-                    </button>
-                </div>
-
                 <div className="canvas">
                     {isGenerating && (
                         <div className="loading-overlay">
@@ -131,7 +80,7 @@ export function FaceSwapResult({ targetImage, faceImage, extraPrompt }: Props) {
                     ) : (
                         <div className="placeholder">
                             <div className="icon">🎭</div>
-                            <p>{canGenerate ? '点击以生成' : '请先上传图片'}</p>
+                            <p>{isGenerating ? 'AI 正在思考...' : '等待生成'}</p>
                         </div>
                     )}
                 </div>
@@ -139,6 +88,7 @@ export function FaceSwapResult({ targetImage, faceImage, extraPrompt }: Props) {
                 {/* Extraction Toolbar (Only shows if result exists) */}
                 {resultImage && (
                     <div className="extraction-bar">
+// ... (rest is same)
                         <div className="info">
                             <strong>后续提取</strong>
                             <span>基于换脸结果生成技术资产</span>

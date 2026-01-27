@@ -9,6 +9,38 @@ export default function FaceSwapPage() {
     const [targetImage, setTargetImage] = useState<string | null>(null);
     const [faceImage, setFaceImage] = useState<string | null>(null);
     const [extraPrompt, setExtraPrompt] = useState<string>('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [resultImage, setResultImage] = useState<string | null>(null);
+
+    const handleFaceSwap = async () => {
+        if (!targetImage || !faceImage) return;
+        setIsGenerating(true);
+        setResultImage(null);
+
+        try {
+            const res = await fetch('/api/py/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: `Image 1 is the TARGET IMAGE (Base Style & Composition). Image 2 is the FACE REFERENCE.\n\nACTION: Perform a high-quality ID swap / Face Swap. replace the face of the main character in Image 1 with the face features from Image 2.\n\nCRITICAL RULES:\n1. KEEP the exact art style, lighting, color palette, and background of Image 1.\n2. KEEP the pose, expression (unless specified otherwise), and body type of Image 1.\n3. BLEND the new face naturally into the existing lighting environment of Image 1.\n4. If the User provided extra instructions, apply them subtly without breaking the above rules.\n\nOutput ONLY the modified Image 1.\n\nUSER EXTRA INSTRUCTION: ${extraPrompt || "None"}`,
+                    images: [targetImage, faceImage],
+                    image_size: "1K",
+                    aspect_ratio: "1:1",
+                    negative_prompt: "low quality, bad anatomy, worst quality, distortion, mutation"
+                }),
+            });
+
+            if (!res.ok) throw new Error('Face swap failed');
+            const data = await res.json();
+            setResultImage(data.image_data);
+
+        } catch (e: any) {
+            console.error(e);
+            alert(`Face swap failed: ${e.message}`);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     return (
         <div className="faceswap-layout">
@@ -26,6 +58,8 @@ export default function FaceSwapPage() {
                             targetImage={targetImage} setTargetImage={setTargetImage}
                             faceImage={faceImage} setFaceImage={setFaceImage}
                             extraPrompt={extraPrompt} setExtraPrompt={setExtraPrompt}
+                            onGenerate={handleFaceSwap}
+                            isGenerating={isGenerating}
                         />
                     </div>
 
@@ -33,9 +67,8 @@ export default function FaceSwapPage() {
                     <div className="result-panel">
                         <div className="bg-gradient" />
                         <FaceSwapResult
-                            targetImage={targetImage}
-                            faceImage={faceImage}
-                            extraPrompt={extraPrompt}
+                            resultImage={resultImage}
+                            isGenerating={isGenerating}
                         />
                     </div>
                 </div>
@@ -68,7 +101,9 @@ export default function FaceSwapPage() {
         .editor-panel {
             width: 400px; border-right: 1px solid var(--border-color);
             padding: 24px; background: var(--bg-panel);
-            overflow-y: auto; flex-shrink: 0;
+            overflow: hidden; flex-shrink: 0;
+            display: flex; flex-direction: column;
+            min-height: 0;
         }
         .result-panel {
             flex: 1; background: #0a0a0a; position: relative;

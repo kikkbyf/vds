@@ -106,12 +106,13 @@ class GeminiImageService:
     async def _run_generation(self, prompt: str, images: List[Union[str, bytes]], aspect_ratio: str, image_size: str) -> GeminiBananaProImageOutput:
         max_retries = 5
         retry_delay = 4  # Start with 4s delay
+        import asyncio
+        import functools
 
         for attempt in range(max_retries + 1):
             try:
                 logger.info(f"Generating image with {self.model} (Native {image_size})... Attempt {attempt + 1}")
                 
-                # ... Payload Building (Omitted for brevity, assumed unchanged) ...
                 # 1. Build Payload
                 parts = [{"text": prompt}]
                 if images:
@@ -132,11 +133,14 @@ class GeminiImageService:
                     }
                 }
 
-                # 2. Send Request
+                # 2. Send Request (Non-blocking)
                 url = f"https://aiplatform.googleapis.com/v1beta1/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model}:generateContent"
                 
-                # Using a longer timeout for the request itself
-                response = requests.post(url, headers=self._get_headers(), json=payload, timeout=600)
+                # Run sync requests in thread pool to avoid blocking asyncio loop
+                loop = asyncio.get_running_loop()
+                # Reduced timeout to 120s to fail fast (5min is next.js timeout)
+                call_request = functools.partial(requests.post, url, headers=self._get_headers(), json=payload, timeout=120)
+                response = await loop.run_in_executor(None, call_request)
 
                 if response.status_code == 429:
                     raise ValueError(f"API Error 429: Rate limit exceeded")
@@ -162,12 +166,6 @@ class GeminiImageService:
                 if not image_bytes:
                     raise ValueError("No image data found in response")
 
-                # [DUPLICATE LOGGING DISABLED] 
-                # This service is usually called by api_server.py which handles its own structured logging
-                # to _generation_logs (supporting the Local Library). 
-                # Disabling this internal log to prevent double storage in 'logs/' folder.
-                # self._log_generation_assets(prompt, images, image_bytes)
-
                 return GeminiBananaProImageOutput(
                     success=True,
                     status=200,
@@ -182,7 +180,8 @@ class GeminiImageService:
                 if attempt < max_retries and is_rate_limit:
                     sleep_time = retry_delay * (2 ** attempt)
                     logger.warning(f"API Rate Limit (429) hit. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
-                    time.sleep(sleep_time)
+                    # Use async sleep!
+                    await asyncio.sleep(sleep_time)
                     continue
                 
                 # If it's not a rate limit error, or we ran out of retries
