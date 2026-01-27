@@ -10,6 +10,8 @@ interface Props {
     setFaceImage: (img: string | null) => void;
     extraPrompt: string;
     setExtraPrompt: (text: string) => void;
+    imageSize: string;
+    setImageSize: (size: string) => void;
     onGenerate: () => void;
     isGenerating: boolean;
 }
@@ -18,11 +20,19 @@ export function FaceSwapEditor({
     targetImage, setTargetImage,
     faceImage, setFaceImage,
     extraPrompt, setExtraPrompt,
+    imageSize, setImageSize,
     onGenerate, isGenerating
 }: Props) {
 
     const canGenerate = !!(targetImage && faceImage);
     const nextReplaceRef = useRef<'target' | 'face'>('target');
+
+    const getCost = () => {
+        const size = String(imageSize).toUpperCase();
+        if (size.includes('4K')) return 5;
+        if (size.includes('2K')) return 2;
+        return 1;
+    };
 
     // Global Paste Handler
     useEffect(() => {
@@ -156,12 +166,26 @@ export function FaceSwapEditor({
             </div>
 
             <div className="footer-actions">
+                <div className="control-row">
+                    <span className="control-label">输出分辨率</span>
+                    <div className="resolution-options">
+                        {['1K', '2K', '4K'].map((res) => (
+                            <button
+                                key={res}
+                                className={`res-btn ${imageSize === res ? 'active' : ''}`}
+                                onClick={() => setImageSize(res)}
+                            >
+                                {res}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 <button
                     onClick={onGenerate}
                     disabled={!canGenerate || isGenerating}
                     className={`bake-btn ${canGenerate ? 'primary' : ''}`}
                 >
-                    {isGenerating ? '正在融合...' : '请上传两张图片以开始'}
+                    {isGenerating ? '正在融合...' : `开始融合 (消耗 ${getCost()} 积分)`}
                 </button>
             </div>
 
@@ -285,7 +309,36 @@ export function FaceSwapEditor({
                 .face-swap-editor .magic-textarea::placeholder { color: #444; }
 
                 /* Footer */
-                .face-swap-editor .footer-actions { padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+                .face-swap-editor .footer-actions { 
+                    padding-top: 12px; 
+                    border-top: 1px solid rgba(255,255,255,0.05); 
+                    flex-shrink: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }
+                .face-swap-editor .control-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .face-swap-editor .control-label {
+                    font-size: 11px; color: #888; text-transform: uppercase;
+                }
+                .face-swap-editor .resolution-options {
+                    display: flex; gap: 4px;
+                    background: #111; padding: 2px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
+                }
+                .face-swap-editor .res-btn {
+                    background: transparent; border: none; color: #666;
+                    font-size: 10px; padding: 4px 8px; border-radius: 4px;
+                    cursor: pointer; transition: all 0.2s;
+                }
+                .face-swap-editor .res-btn:hover { color: #fff; }
+                .face-swap-editor .res-btn.active {
+                    background: #333; color: #fff; font-weight: 600;
+                }
+
                 .face-swap-editor .bake-btn {
                     width: 100%; height: 44px;
                     background: #222; border: 1px solid rgba(255,255,255,0.1);
