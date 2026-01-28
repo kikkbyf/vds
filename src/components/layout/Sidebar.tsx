@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen } from 'lucide-react';
+import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen, RefreshCcw } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 // import { getPendingUsers } from '@/actions/admin';
@@ -77,6 +77,9 @@ export default function Sidebar() {
                     </Link>
                     <Link href="/persona" className={`nav-item ${isActive('/persona') ? 'active' : ''}`} title="数字人制造">
                         <span className="text-xl">👤</span>
+                    </Link>
+                    <Link href="/faceswap" className={`nav-item ${isActive('/faceswap') ? 'active' : ''}`} title="AI 换脸">
+                        <RefreshCcw size={20} />
                     </Link>
 
                     <button

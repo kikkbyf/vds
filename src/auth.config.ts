@@ -8,6 +8,9 @@ export const authConfig = {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
 
+            // 开发环境放行指定页面，便于本地调试/自动化检查
+            if (process.env.NODE_ENV === 'development' && nextUrl.pathname.startsWith('/faceswap')) return true;
+
             // Allow access to login page
             if (nextUrl.pathname.startsWith('/login')) return true;
 

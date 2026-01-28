@@ -16,8 +16,7 @@ export function MagicInput({ onSubmit, isLoading }: MagicInputProps) {
     const handleSubmit = () => {
         if (!text.trim() && !image) return;
         onSubmit(text, image || undefined);
-        setText('');
-        setImage(null);
+        // Persist input after submit for better UX
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -72,7 +71,7 @@ export function MagicInput({ onSubmit, isLoading }: MagicInputProps) {
                         <span className="mode-badge">已启用图生图模式</span>
                     </div>
                 )}
-                
+
                 <textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
@@ -85,22 +84,22 @@ export function MagicInput({ onSubmit, isLoading }: MagicInputProps) {
                 <div className="actions">
                     <div className="left-tools">
                         <span className="hint">⌘ + Enter</span>
-                        <button 
-                            className="tool-btn" 
+                        <button
+                            className="tool-btn"
                             onClick={() => fileInputRef.current?.click()}
                             title="上传参考图"
                         >
                             <Paperclip size={16} />
                         </button>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            style={{ display: 'none' }} 
-                            accept="image/*" 
-                            onChange={handleFileChange} 
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            style={{ display: 'none' }}
+                            accept="image/*"
+                            onChange={handleFileChange}
                         />
                     </div>
-                    
+
                     <button
                         onClick={handleSubmit}
                         disabled={isLoading || (!text.trim() && !image)}

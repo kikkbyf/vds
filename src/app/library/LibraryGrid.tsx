@@ -27,6 +27,8 @@ export interface FullCreation {
     createdAt: Date;
     sessionId?: string;
     creationType?: 'extraction' | 'digital_human' | 'standard';
+    visible?: boolean;
+    deletedAt?: Date | string | null;
     user?: {
         name: string | null;
         email: string;
@@ -291,6 +293,7 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
                                 >
                                     <CreationCard
                                         item={primaryItem}
+                                        isAdmin={isAdmin}
                                         onRemix={handleRemix}
                                         // Pass explicit handler to ensure it works
                                         onClick={() => {
@@ -312,6 +315,7 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
             {selectedCreation && (
                 <CreationDetailsModal
                     creation={selectedCreation}
+                    isAdmin={isAdmin}
                     // Pass all items from the same session
                     relatedCreations={creations.filter(c => c.sessionId === selectedCreation.sessionId)}
                     onClose={() => setSelectedId(null)}

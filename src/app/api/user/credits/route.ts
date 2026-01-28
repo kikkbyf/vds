@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
         });
         return NextResponse.json({ credits: user?.credits ?? 0 });
     } catch (error) {
-        console.warn('DB Connection Failed, using mock credits', error);
+        if (process.env.NODE_ENV !== 'development') {
+            console.warn('DB Connection Failed, using mock credits', error);
+        }
         // Fallback for Demo Mode / No DB
         return NextResponse.json({ credits: 100 });
     }
