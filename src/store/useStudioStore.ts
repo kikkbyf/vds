@@ -1,5 +1,29 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { generatePrompt } from '@/utils/promptUtils';
+
+export interface TaskItem {
+    id: string;
+    type: 'generation';
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+    progress: number;
+    message: string;
+    startTime: number;
+    prompt: string; // Metadata for UI
+    thumbnail?: string; // Optional result thumbnail
+}
+
+export interface CreationParams {
+    prompt: string;
+    negative: string | null;
+    aspectRatio: string;
+    imageSize: string;
+    shotPreset: string | null;
+    lightingPreset: string | null;
+    focalLength: number | null;
+    guidance: number | null;
+    inputImageUrls: string[];
+}
 
 interface StudioState {
     // Input
@@ -60,25 +84,18 @@ interface StudioState {
     enhancePrompt: boolean;
     setEnhancePrompt: (val: boolean) => void;
 
+    // Async Task Queue
+    activeTasks: TaskItem[];
+    addActiveTask: (task: TaskItem) => void;
+    removeActiveTask: (taskId: string) => void;
+    updateTaskStatus: (taskId: string, status: string, progress: number, message: string, result?: any) => void;
+    cancelTask: (taskId: string) => Promise<void>;
+
     generateImage: () => Promise<void>;
 
     // Remix / Restore
     setParamsFromCreation: (params: CreationParams) => void;
 }
-
-export interface CreationParams {
-    prompt: string;
-    negative: string | null;
-    aspectRatio: string;
-    imageSize: string;
-    shotPreset: string | null;
-    lightingPreset: string | null;
-    focalLength: number | null;
-    guidance: number | null;
-    inputImageUrls: string[];
-}
-
-import { persist } from 'zustand/middleware';
 
 export const useStudioStore = create<StudioState>()(
     persist(
@@ -102,7 +119,7 @@ export const useStudioStore = create<StudioState>()(
             isGenerating: false,
             isExtractingDepth: false,
 
-            // Progress Defaults
+            // Progress Defaults 
             generationStatus: 'Ready',
             generationProgress: 0,
             setGenerationStatus: (val) => set({ generationStatus: val }),
@@ -168,9 +185,8 @@ export const useStudioStore = create<StudioState>()(
                     negativePrompt: params.negative || '',
                     aspectRatio: params.aspectRatio,
                     imageSize: params.imageSize,
-                    uploadedImages: params.inputImageUrls || [], // Safety fallback
+                    uploadedImages: params.inputImageUrls || [],
 
-                    // Optional overrides
                     ...(params.shotPreset && { shotPreset: params.shotPreset }),
                     ...(params.lightingPreset && { lightingPreset: params.lightingPreset }),
                     ...(params.focalLength && { focalLength: params.focalLength }),
@@ -178,54 +194,77 @@ export const useStudioStore = create<StudioState>()(
                 });
             },
 
+            // --- Async Task Queue Implementation ---
+            activeTasks: [],
+
+            addActiveTask: (task) => set((state) => ({
+                activeTasks: [task, ...state.activeTasks],
+                isGenerating: true
+            })),
+
+            removeActiveTask: (taskId) => set((state) => {
+                const newTasks = state.activeTasks.filter(t => t.id !== taskId);
+                return {
+                    activeTasks: newTasks,
+                    isGenerating: newTasks.length > 0
+                };
+            }),
+
+            updateTaskStatus: (taskId, status, progress, message, result) => set((state) => ({
+                activeTasks: state.activeTasks.map(t =>
+                    t.id === taskId
+                        ? { ...t, status: status as any, progress, message, thumbnail: result?.image_data ? result.image_data : t.thumbnail }
+                        : t
+                )
+            })),
+
+            cancelTask: async (taskId) => {
+                try {
+                    await fetch(`/api/py/tasks/${taskId}/cancel`, { method: 'POST' });
+                    get().updateTaskStatus(taskId, 'CANCELLED', 0, 'Cancelled by user');
+                } catch (e) {
+                    console.error("Failed to cancel task", e);
+                }
+            },
+
             generateImage: async () => {
                 const {
                     uploadedImages, shotPreset, focalLength, lightingPreset, isGenerating,
                     currentPrompt, getScreenshot, aspectRatio, imageSize, guidanceScale,
-                    negativePrompt, enhancePrompt
+                    negativePrompt, enhancePrompt, addActiveTask, setGenerationStatus
                 } = get();
-                if (isGenerating) return;
 
-                set({ isGenerating: true, generatedImage: null, generationProgress: 5, generationStatus: 'Initializing...' });
+                // Prevent duplicate submission only if we want strict blocking, 
+                // but since we support queue, maybe allow multiple? 
+                // Let's stick to simple "one at a time" button spam prevention for now 
+                // OR allow multiple. User said "Queue". 
+                // If isGenerating is true, maybe we just warn? 
+                // Let's allow multiple submissions! Remove the check or make it smarter.
+                // CURRENTLY: isGenerating is connected to "Loading" UI. 
+                // If we want multiple, we should decoupling "loading button" from "generating state".
+                // For now, let's keep isGenerating as "at least one task is active".
 
+                // 1. Capture Viewport
+                setGenerationStatus('Capturing Viewport...');
+                const viewportCapture = getScreenshot ? getScreenshot() : null;
+
+                // 2. Prepare Inputs
+                const finalImages = [];
+                if (viewportCapture) finalImages.push(viewportCapture);
+                finalImages.push(...uploadedImages);
+
+                // 3. Submit
+                setGenerationStatus('Submitting Task...');
                 try {
-                    // 1. Capture Viewport Screenshot
-                    set({ generationStatus: 'Capturing Viewport...', generationProgress: 15 });
-                    const viewportCapture = getScreenshot ? getScreenshot() : null;
-
-                    // 2. Prepare image list
-                    set({ generationStatus: 'Preparing Assets...', generationProgress: 30 });
-                    const finalImages = [];
-                    if (viewportCapture) {
-                        finalImages.push(viewportCapture);
-                    }
-                    finalImages.push(...uploadedImages);
-
-                    // Call Python API Server
-                    set({ generationStatus: 'Sending to Gemini 3 Pro...', generationProgress: 50 });
-
-                    // Start a slow synthetic progress animation while waiting
-                    const progressInterval = setInterval(() => {
-                        set((state) => {
-                            if (state.generationProgress < 90) {
-                                return { generationProgress: state.generationProgress + 1 };
-                            }
-                            return {};
-                        });
-                    }, 500);
-
-                    const response = await fetch('/api/py/generate', {
+                    const response = await fetch('/api/py/tasks/submit/generate', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             prompt: currentPrompt,
                             images: finalImages,
                             shot_preset: shotPreset,
                             lighting_preset: lightingPreset,
                             focal_length: focalLength,
-                            // New Parameters
                             aspect_ratio: aspectRatio,
                             image_size: imageSize,
                             guidance_scale: guidanceScale,
@@ -234,41 +273,39 @@ export const useStudioStore = create<StudioState>()(
                         }),
                     });
 
-                    clearInterval(progressInterval);
-                    set({ generationProgress: 95, generationStatus: 'Processing Response...' });
-
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({ error: response.statusText }));
-                        throw new Error(errorData.error || errorData.detail || 'Generation failed');
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Submission failed');
                     }
 
                     const data = await response.json();
-                    if (data.image_data) {
-                        set({ generatedImage: data.image_data, generationProgress: 100, generationStatus: 'Complete' });
 
-                        // Refresh credits immediately
-                        get().fetchCredits();
+                    addActiveTask({
+                        id: data.task_id,
+                        type: 'generation',
+                        status: 'PENDING',
+                        progress: 0,
+                        message: 'Queued',
+                        startTime: Date.now(),
+                        prompt: currentPrompt
+                    });
 
-                        // --- Auto-Save Handled by Server Proxy now ---
-                        console.log("[Store] Server-side auto-save handling expected.");
+                    setGenerationStatus('Task Queued');
+                    startTaskPoller(get, set);
 
-                    } else {
-                        throw new Error('API returned success but no image data found.');
-                    }
                 } catch (error) {
-                    console.error("Generation failed:", error);
-                    set({ generationStatus: 'Error: ' + (error as Error).message });
-                } finally {
-                    set({ isGenerating: false });
-                    // Reset status after a delay
-                    setTimeout(() => set({ generationStatus: 'Ready', generationProgress: 0 }), 3000);
+                    console.error("Submission failed:", error);
+                    setGenerationStatus('Error: ' + (error as Error).message);
+                    // If queue is empty, reset generating flag
+                    if (get().activeTasks.length === 0) {
+                        set({ isGenerating: false });
+                    }
                 }
             }
         }),
         {
             name: 'fasion-photo-studio-storage',
             partialize: (state) => ({
-                // Persist only these fields
                 currentPrompt: state.currentPrompt,
                 shotPreset: state.shotPreset,
                 focalLength: state.focalLength,
@@ -278,8 +315,70 @@ export const useStudioStore = create<StudioState>()(
                 guidanceScale: state.guidanceScale,
                 negativePrompt: state.negativePrompt,
                 enhancePrompt: state.enhancePrompt,
-                viewMode: state.viewMode
+                viewMode: state.viewMode,
+                activeTasks: state.activeTasks
             }),
         }
     )
 );
+
+// --- Polling Logic ---
+let pollerInterval: NodeJS.Timeout | null = null;
+
+const startTaskPoller = (get: () => StudioState, set: any) => {
+    if (pollerInterval) return;
+
+    console.log("Starting Task Poller...");
+    pollerInterval = setInterval(async () => {
+        const { activeTasks, updateTaskStatus, removeActiveTask, setGeneratedImage, fetchCredits, setGenerationStatus, setGenerationProgress } = get();
+
+        if (activeTasks.length === 0) {
+            if (pollerInterval) {
+                clearInterval(pollerInterval);
+                pollerInterval = null;
+            }
+            console.log("No active tasks, stopping poller.");
+            return;
+        }
+
+        for (const task of activeTasks) {
+            if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(task.status)) {
+                continue;
+            }
+
+            try {
+                const res = await fetch(`/api/py/tasks/${task.id}`);
+                if (res.status === 404) {
+                    updateTaskStatus(task.id, 'FAILED', 0, 'Task not found');
+                    continue;
+                }
+
+                const data = await res.json();
+
+                if (JSON.stringify(data.status) !== JSON.stringify(task.status) ||
+                    data.progress !== task.progress ||
+                    data.message !== task.message) {
+
+                    updateTaskStatus(task.id, data.status, data.progress, data.message, data.result);
+
+                    // Sync main UI
+                    if (task === activeTasks[0]) {
+                        setGenerationStatus(data.message);
+                        setGenerationProgress(data.progress);
+                    }
+                }
+
+                if (data.status === 'COMPLETED') {
+                    if (data.result && data.result.image_data) {
+                        setGeneratedImage(data.result.image_data);
+                        fetchCredits();
+                        setGenerationStatus('Ready'); // Reset main UI status
+                        setGenerationProgress(100);
+                    }
+                }
+            } catch (e) {
+                console.warn(`Polling failed for task ${task.id}`, e);
+            }
+        }
+    }, 2000);
+};

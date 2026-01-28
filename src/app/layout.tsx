@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 import { Providers } from '@/components/providers/Providers';
 
 import UserActivityTracker from '@/components/UserActivityTracker';
+import { GlobalTaskQueue } from '@/components/GlobalTaskQueue';
 
 export default function RootLayout({
   children,
@@ -21,6 +22,7 @@ export default function RootLayout({
         <Providers>
           <UserActivityTracker />
           {children}
+          <GlobalTaskQueue />
         </Providers>
       </body>
     </html>
