@@ -14,6 +14,11 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
     const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
 
+    // Generation Settings
+    const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16" | "3:4" | "4:3">("1:1");
+    // This is for the *generation* resolution, separate from extraction resolution
+    const [genResolution, setGenResolution] = useState<"1K" | "2K" | "4K">("1K");
+
     // Reset internal state if external props change (new generation/upload)
     // Actually, we should be careful. If persona changes, resultImage cleared.
     // If uploadedImage changes, we should probably clear extractedAssets if desired, but user might want to keep history?
@@ -36,8 +41,8 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     persona: persona,
-                    image_size: "1K", // Default
-                    aspect_ratio: "1:1" // Default
+                    image_size: genResolution,
+                    aspect_ratio: aspectRatio
                 }),
             });
 
@@ -128,23 +133,64 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
 
     const isTechnicalMode = !!extractedAssets;
 
+    const getCost = () => {
+        if (genResolution === '4K') return 5;
+        if (genResolution === '2K') return 2;
+        return 1;
+    };
+
     return (
         <div className={`result-container ${isTechnicalMode ? 'mode-technical' : ''}`}>
 
             {/* Left Pane: Original Persona */}
             <div className="pane-original">
                 {!isImageMode && (
-                    <div className="control-bar">
-                        <div className="status-text">
-                            <span className="ready-text">准备生成。</span> 消耗: 1 积分
+                    <div className="control-section">
+                        {/* Generation Settings Row */}
+                        <div className="settings-row">
+                            <div className="settings-group">
+                                <label>比例</label>
+                                <div className="ratio-grid">
+                                    {['1:1', '4:3', '3:4', '16:9', '9:16'].map((r) => (
+                                        <button
+                                            key={r}
+                                            className={`ratio-btn ${aspectRatio === r ? 'active' : ''}`}
+                                            onClick={() => setAspectRatio(r as any)}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="settings-group">
+                                <label>分辨率</label>
+                                <div className="ratio-grid">
+                                    {['1K', '2K', '4K'].map((r) => (
+                                        <button
+                                            key={r}
+                                            className={`ratio-btn ${genResolution === r ? 'active' : ''}`}
+                                            onClick={() => setGenResolution(r as any)}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                        <button
-                            onClick={handleGenerate}
-                            disabled={isGenerating}
-                            className="gen-btn"
-                        >
-                            {isGenerating ? '渲染中...' : '生成 (1K)'}
-                        </button>
+
+                        <div className="control-bar">
+                            <div className="status-text">
+                                <span className="ready-text">准备生成。</span> 消耗: {getCost()} 积分
+                            </div>
+                            <button
+                                onClick={handleGenerate}
+                                disabled={isGenerating}
+                                className="gen-btn"
+                            >
+                                {isGenerating ? '渲染中...' : '生成'}
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -299,6 +345,9 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         .mode-technical .pane-original .status-text {
             display: none;
         }
+        .mode-technical .pane-original .settings-row {
+            display: none; 
+        }
         
         .pane-technical {
             flex: 3;
@@ -359,12 +408,59 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         .tech-img:hover {
             /* Subtle interaction hint */
         }
-        .control-bar {
-            width: 100%;
+        .control-section {
             background: var(--bg-panel);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
-            padding: 6px 6px 6px 20px;
+            overflow: hidden;
+        }
+        .settings-row {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .settings-group label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .ratio-grid {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .ratio-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+        .ratio-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .ratio-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .control-bar {
+            width: 100%;
+            padding: 10px 12px; 
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -411,10 +507,17 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             position: relative;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
+        
+        /* Apply dynamic aspect ratio to canvas */
+        .canvas {
+             aspect-ratio: ${aspectRatio.replace(':', '/')};
+             transition: aspect-ratio 0.3s ease;
+        }
+
         .result-img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain; /* Ensure full image is seen in non-square ratios */
             animation: fadeIn 0.7s ease-out;
         }
         .placeholder {
