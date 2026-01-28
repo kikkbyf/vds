@@ -84,34 +84,47 @@ class GeminiImageService:
         return "image/png"
 
     async def generate_image_from_image(
-        self, input_data: GeminiBananaProImageToImageInput
+        self, input_data: GeminiBananaProImageToImageInput, **kwargs
     ) -> GeminiBananaProImageOutput:
         return await self._run_generation(
             prompt=input_data.prompt,
             images=input_data.image_url,
             aspect_ratio=input_data.ratio.value,
-            image_size=input_data.image_size.value
+            image_size=input_data.image_size.value,
+            **kwargs
         )
 
     async def generate_image_from_text(
-        self, input_data: GeminiBananaProTextToImageInput
+        self, input_data: GeminiBananaProTextToImageInput, **kwargs
     ) -> GeminiBananaProImageOutput:
         return await self._run_generation(
             prompt=input_data.prompt,
             images=[],
             aspect_ratio=input_data.ratio.value,
-            image_size=input_data.image_size.value
+            image_size=input_data.image_size.value,
+            **kwargs
         )
 
-    async def _run_generation(self, prompt: str, images: List[Union[str, bytes]], aspect_ratio: str, image_size: str) -> GeminiBananaProImageOutput:
-        max_retries = 5
-        retry_delay = 4  # Start with 4s delay
+    async def _run_generation(self, prompt: str, images: List[Union[str, bytes]], aspect_ratio: str, image_size: str, progress_callback=None) -> GeminiBananaProImageOutput:
+        # Retry Strategy: 4s * (2^n) 
+        # 0: 4s
+        # 1: 8s
+        # 2: 16s
+        # 3: 32s
+        # 4: 64s
+        # 5: 128s
+        # 6: 256s (4m) ...
+        max_retries = 10 
+        retry_delay = 4
+        
         import asyncio
         import functools
 
         for attempt in range(max_retries + 1):
             try:
                 logger.info(f"Generating image with {self.model} (Native {image_size})... Attempt {attempt + 1}")
+                if attempt > 0 and progress_callback:
+                    progress_callback(50, f"Generating... (Attempt {attempt + 1}/{max_retries})")
                 
                 # 1. Build Payload
                 parts = [{"text": prompt}]
@@ -139,6 +152,8 @@ class GeminiImageService:
                 # Run sync requests in thread pool to avoid blocking asyncio loop
                 loop = asyncio.get_running_loop()
                 # Reduced timeout to 120s to fail fast (5min is next.js timeout)
+                # But since we are backend async now, we can tolerate longer timeouts if needed, 
+                # but standard HTTP request timeout is good.
                 call_request = functools.partial(requests.post, url, headers=self._get_headers(), json=payload, timeout=120)
                 response = await loop.run_in_executor(None, call_request)
 
@@ -179,7 +194,13 @@ class GeminiImageService:
                 
                 if attempt < max_retries and is_rate_limit:
                     sleep_time = retry_delay * (2 ** attempt)
-                    logger.warning(f"API Rate Limit (429) hit. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
+                    msg = f"API Limit Hit (429). Retrying in {sleep_time}s... ({attempt + 1}/{max_retries})"
+                    logger.warning(msg)
+                    
+                    if progress_callback:
+                        # Allow user to see we are waiting
+                        progress_callback(50, f"Waiting for Quota... ({sleep_time}s retry)")
+                        
                     # Use async sleep!
                     await asyncio.sleep(sleep_time)
                     continue
