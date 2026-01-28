@@ -151,7 +151,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                             <div className="settings-group">
                                 <label>比例</label>
                                 <div className="ratio-grid">
-                                    {['1:1', '4:3', '3:4', '16:9', '9:16'].map((r) => (
+                                    {['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', '9:21', '3:2', '2:3'].map((r) => (
                                         <button
                                             key={r}
                                             className={`ratio-btn ${aspectRatio === r ? 'active' : ''}`}
