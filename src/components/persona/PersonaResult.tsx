@@ -15,7 +15,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
     const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
 
     // Generation Settings
-    const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16" | "3:4" | "4:3">("1:1");
+    const [aspectRatio, setAspectRatio] = useState<string>("1:1");
     // This is for the *generation* resolution, separate from extraction resolution
     const [genResolution, setGenResolution] = useState<"1K" | "2K" | "4K">("1K");
 

@@ -12,6 +12,8 @@ interface Props {
     setExtraPrompt: (text: string) => void;
     imageSize: string;
     setImageSize: (size: string) => void;
+    aspectRatio: string;
+    setAspectRatio: (ratio: string) => void;
     onGenerate: () => void;
     isGenerating: boolean;
 }
@@ -21,6 +23,7 @@ export function FaceSwapEditor({
     faceImage, setFaceImage,
     extraPrompt, setExtraPrompt,
     imageSize, setImageSize,
+    aspectRatio, setAspectRatio,
     onGenerate, isGenerating
 }: Props) {
 
@@ -166,6 +169,7 @@ export function FaceSwapEditor({
             </div>
 
             <div className="footer-actions">
+                {/* Resolution Control */}
                 <div className="control-row">
                     <span className="control-label">输出分辨率</span>
                     <div className="resolution-options">
@@ -180,6 +184,23 @@ export function FaceSwapEditor({
                         ))}
                     </div>
                 </div>
+
+                {/* [NEW] Aspect Ratio Control */}
+                <div className="control-row">
+                    <span className="control-label">画幅比例</span>
+                    <div className="resolution-options">
+                        {['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', '9:21', '3:2', '2:3'].map((r) => (
+                            <button
+                                key={r}
+                                className={`res-btn ${aspectRatio === r ? 'active' : ''}`}
+                                onClick={() => setAspectRatio(r)}
+                            >
+                                {r}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <button
                     onClick={onGenerate}
                     disabled={!canGenerate || isGenerating}
@@ -328,6 +349,7 @@ export function FaceSwapEditor({
                 .face-swap-editor .resolution-options {
                     display: flex; gap: 4px;
                     background: #111; padding: 2px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
+                    flex-wrap: wrap; /* Support wrapping if too many buttons */
                 }
                 .face-swap-editor .res-btn {
                     background: transparent; border: none; color: #666;

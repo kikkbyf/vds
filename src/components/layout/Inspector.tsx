@@ -326,7 +326,7 @@ export default function Inspector() {
                 <div className="control-subgroup">
                     <span className="sub-label">Aspect Ratio</span>
                     <div className="ratio-grid">
-                        {['1:1', '4:3', '3:4', '16:9', '9:16'].map((r) => (
+                        {['1:1', '4:3', '3:4', '16:9', '9:16', '21:9', '9:21', '3:2', '2:3'].map((r) => (
                             <button
                                 key={r}
                                 className={`ratio-btn ${aspectRatio === r ? 'active' : ''}`}
