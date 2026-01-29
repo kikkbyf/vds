@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FACE_SWAP_PROMPTS } from '@/lib/faceSwapPrompts';
 import { VIEW_PROMPTS } from '@/lib/viewPrompts';
+import { useStudioStore } from '@/store/useStudioStore';
 
 interface Props {
     resultImage: string | null;
@@ -10,6 +11,17 @@ interface Props {
 }
 
 export function FaceSwapResult({ resultImage, isGenerating }: Props) {
+    const { activeTasks } = useStudioStore();
+
+    // Check for running Face Swap task
+    const runningFaceSwapTask = activeTasks.find(t => t.type === 'faceswap' && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.status));
+
+    // Check for completed Face Swap task (most recent one with a result)
+    const completedFaceSwapTask = activeTasks.find(t => t.type === 'faceswap' && t.status === 'COMPLETED' && t.thumbnail);
+
+    // Use either the prop or the completed task's thumbnail
+    const displayImage = resultImage || completedFaceSwapTask?.thumbnail || null;
+
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
     const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
@@ -17,51 +29,74 @@ export function FaceSwapResult({ resultImage, isGenerating }: Props) {
     // Reset extraction when resultImage changes? Optional, but good practice if new image comes.
     // For now simple.
 
+    const { submitGenericTask } = useStudioStore();
+
+    // Check for completed extraction tasks (same pattern as PersonaResult)
+    const completedHeadshotTask = activeTasks.find(t =>
+        t.type === 'extraction' &&
+        t.status === 'COMPLETED' &&
+        t.thumbnail &&
+        t.name?.includes('Headshot')
+    );
+    const completedTurnaroundTask = activeTasks.find(t =>
+        t.type === 'extraction' &&
+        t.status === 'COMPLETED' &&
+        t.thumbnail &&
+        t.name?.includes('Turnaround')
+    );
+
+    // Derive extracted assets from completed tasks OR local state
+    const derivedExtractedAssets = (completedHeadshotTask?.thumbnail || completedTurnaroundTask?.thumbnail)
+        ? {
+            headshot: completedHeadshotTask?.thumbnail || extractedAssets?.headshot || '',
+            turnaround: completedTurnaroundTask?.thumbnail || extractedAssets?.turnaround || ''
+        }
+        : extractedAssets;
+
+    // Check if any extraction is in progress
+    const runningExtractionTask = activeTasks.find(t => t.type === 'extraction' && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.status));
+    const isExtractingState = isExtracting || !!runningExtractionTask;
+
     const handleExtract = async (mode: 'all' | 'headshot' | 'turnaround' = 'all') => {
-        if (!resultImage) return;
+        if (!displayImage) return;
         setIsExtracting(true);
 
         const tasks = [];
         if (mode === 'all' || mode === 'headshot') {
             tasks.push({
                 name: 'Headshot', key: 'headshot',
-                payload: { prompt: VIEW_PROMPTS.HEADSHOT_GRID, aspect_ratio: "1:1", image_size: resolution, images: [resultImage] }
+                endpoint: '/api/py/tasks/submit/generate',
+                payload: { prompt: VIEW_PROMPTS.HEADSHOT_GRID, aspect_ratio: "1:1", image_size: resolution, images: [displayImage] }
             });
         }
         if (mode === 'all' || mode === 'turnaround') {
             tasks.push({
                 name: 'Turnaround', key: 'turnaround',
-                payload: { prompt: VIEW_PROMPTS.TURNAROUND_SHEET, aspect_ratio: "4:3", image_size: resolution, images: [resultImage] }
+                endpoint: '/api/py/tasks/submit/generate',
+                payload: { prompt: VIEW_PROMPTS.TURNAROUND_SHEET, aspect_ratio: "4:3", image_size: resolution, images: [displayImage] }
             });
         }
 
         try {
-            const results = await Promise.all(tasks.map(task =>
-                fetch('/api/py/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(task.payload)
-                }).then(async res => {
-                    if (!res.ok) throw new Error(`${task.name} failed`);
-                    const data = await res.json();
-                    return { key: task.key, data: data.image_data };
-                })
-            ));
-
-            setExtractedAssets(prev => {
-                const newAssets: any = { ...prev };
-                results.forEach(r => { if (r.data) newAssets[r.key] = r.data; });
-                return newAssets;
-            });
+            // Submit all tasks to queue
+            for (const task of tasks) {
+                await submitGenericTask(
+                    task.endpoint,
+                    task.payload,
+                    'extraction',
+                    `Extracting ${task.name}`
+                );
+            }
+            // 任务已提交到队列，derivedExtractedAssets 会自动更新
 
         } catch (e: any) {
-            alert(`Extraction failed: ${e.message}`);
+            alert(`Extraction submission failed: ${e.message}`);
         } finally {
             setIsExtracting(false);
         }
     };
 
-    const isTechnicalMode = !!extractedAssets;
+    const isTechnicalMode = !!derivedExtractedAssets;
 
     return (
         <div className={`result-container ${isTechnicalMode ? 'mode-technical' : ''}`}>
@@ -69,24 +104,40 @@ export function FaceSwapResult({ resultImage, isGenerating }: Props) {
             {/* Left Pane: Result or Placeholder */}
             <div className="pane-original">
                 <div className="canvas">
-                    {isGenerating && (
+                    {/* Check for active task to keep loading state persistent */}
+                    {(isGenerating || runningFaceSwapTask) && (
                         <div className="loading-overlay">
                             <div className="spinner" />
                             <p className="loading-text">正在融合特征...</p>
+
+                            {runningFaceSwapTask && (
+                                <div className="mt-4 w-64 max-w-[80%]">
+                                    <div className="flex justify-between text-[10px] text-white/60 mb-1 uppercase tracking-wider">
+                                        <span>{runningFaceSwapTask.message || "Processing..."}</span>
+                                        <span>{Math.round(runningFaceSwapTask.progress)}%</span>
+                                    </div>
+                                    <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                                            style={{ width: `${runningFaceSwapTask.progress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-                    {resultImage ? (
-                        <img src={resultImage} className="result-img" />
+                    {displayImage ? (
+                        <img src={displayImage} className="result-img" />
                     ) : (
                         <div className="placeholder">
                             <div className="icon">🎭</div>
-                            <p>{isGenerating ? 'AI 正在思考...' : '等待生成'}</p>
+                            <p>{(isGenerating || runningFaceSwapTask) ? 'AI 正在思考...' : '等待生成'}</p>
                         </div>
                     )}
                 </div>
 
                 {/* Extraction Toolbar (Only shows if result exists) */}
-                {resultImage && (
+                {displayImage && (
                     <div className="extraction-bar">
 // ... (rest is same)
                         <div className="info">
@@ -99,9 +150,9 @@ export function FaceSwapResult({ resultImage, isGenerating }: Props) {
                                 <option value="2K">2K</option>
                                 <option value="4K">4K</option>
                             </select>
-                            <button onClick={() => handleExtract('headshot')} disabled={isExtracting} className="extract-btn secondary" title="提取头像">👤</button>
-                            <button onClick={() => handleExtract('turnaround')} disabled={isExtracting} className="extract-btn secondary" title="提取全身">🧍</button>
-                            <button onClick={() => handleExtract('all')} disabled={isExtracting} className="extract-btn primary">✨ 一键提取</button>
+                            <button onClick={() => handleExtract('headshot')} disabled={isExtractingState} className="extract-btn secondary" title="提取头像">👤</button>
+                            <button onClick={() => handleExtract('turnaround')} disabled={isExtractingState} className="extract-btn secondary" title="提取全身">🧍</button>
+                            <button onClick={() => handleExtract('all')} disabled={isExtractingState} className="extract-btn primary">✨ 一键提取</button>
                         </div>
                     </div>
                 )}

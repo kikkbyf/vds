@@ -41,7 +41,8 @@ class TaskQueue:
                 "progress": 0,
                 "message": "Initializing...",
                 "result": None,
-                "error": None
+                "error": None,
+                "metadata": kwargs.get("metadata", {})
             }
 
         # Fire and forget - run in background

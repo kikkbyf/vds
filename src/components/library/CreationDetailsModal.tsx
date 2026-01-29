@@ -188,19 +188,32 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                             )}
                         </div>
 
-                        {creation.inputImageUrls && creation.inputImageUrls.length > 0 && (
-                            <div className="detail-group">
-                                <label>Input References</label>
-                                <div className="inputs-grid">
-                                    {creation.inputImageUrls.map((url, i) => (
-                                        <div key={i} className="input-thumb">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={url} alt={`Ref ${i}`} />
+                        {(() => {
+                            let inputs: string[] = [];
+                            try {
+                                const raw = creation.inputImageUrls;
+                                inputs = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                            } catch (e) {
+                                inputs = [];
+                            }
+
+                            if (inputs && inputs.length > 0) {
+                                return (
+                                    <div className="detail-group">
+                                        <label>Input References</label>
+                                        <div className="inputs-grid">
+                                            {inputs.map((url, i) => (
+                                                <div key={i} className="input-thumb">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={url} alt={`Ref ${i}`} />
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
 
                         <div className="detail-group">
                             <label>Settings</label>
@@ -518,7 +531,7 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                     margin: 0 4px;
                 }
             `}</style>
-        </div>
+        </div >
     );
 }
 

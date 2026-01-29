@@ -4,6 +4,7 @@ import { useState } from 'react';
 import SideMenu from '@/components/layout/Sidebar';
 import { FaceSwapEditor } from '@/components/faceswap/FaceSwapEditor';
 import { FaceSwapResult } from '@/components/faceswap/FaceSwapResult';
+import { useStudioStore } from '@/store/useStudioStore';
 
 export default function FaceSwapPage() {
     const [targetImage, setTargetImage] = useState<string | null>(null);
@@ -14,31 +15,32 @@ export default function FaceSwapPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultImage, setResultImage] = useState<string | null>(null);
 
+    const { submitGenericTask } = useStudioStore();
+
     const handleFaceSwap = async () => {
         if (!targetImage || !faceImage) return;
         setIsGenerating(true);
         setResultImage(null);
 
         try {
-            const res = await fetch('/api/py/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            await submitGenericTask(
+                '/api/py/tasks/submit/generate',
+                {
                     prompt: `Image 1 is the TARGET IMAGE (Base Style & Composition). Image 2 is the FACE REFERENCE.\n\nACTION: Perform a high-quality ID swap / Face Swap. replace the face of the main character in Image 1 with the face features from Image 2.\n\nCRITICAL RULES:\n1. KEEP the exact art style, lighting, color palette, and background of Image 1.\n2. KEEP the pose, expression (unless specified otherwise), and body type of Image 1.\n3. BLEND the new face naturally into the existing lighting environment of Image 1.\n4. If the User provided extra instructions, apply them subtly without breaking the above rules.\n\nOutput ONLY the modified Image 1.\n\nUSER EXTRA INSTRUCTION: ${extraPrompt || "None"}`,
                     images: [targetImage, faceImage],
                     image_size: imageSize,
                     aspect_ratio: aspectRatio,
                     negative_prompt: "low quality, bad anatomy, worst quality, distortion, mutation"
-                }),
-            });
+                },
+                'faceswap',
+                'Face Swap'
+            );
 
-            if (!res.ok) throw new Error('Face swap failed');
-            const data = await res.json();
-            setResultImage(data.image_data);
+            // Note: Global UI takes over.
 
         } catch (e: any) {
             console.error(e);
-            alert(`Face swap failed: ${e.message}`);
+            alert(`Face swap submission failed: ${e.message}`);
         } finally {
             setIsGenerating(false);
         }

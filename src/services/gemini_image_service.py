@@ -151,10 +151,10 @@ class GeminiImageService:
                 
                 # Run sync requests in thread pool to avoid blocking asyncio loop
                 loop = asyncio.get_running_loop()
-                # Reduced timeout to 120s to fail fast (5min is next.js timeout)
+                # Reduced timeout to 180s to fail fast
                 # But since we are backend async now, we can tolerate longer timeouts if needed, 
                 # but standard HTTP request timeout is good.
-                call_request = functools.partial(requests.post, url, headers=self._get_headers(), json=payload, timeout=120)
+                call_request = functools.partial(requests.post, url, headers=self._get_headers(), json=payload, timeout=180)
                 response = await loop.run_in_executor(None, call_request)
 
                 if response.status_code == 429:
@@ -191,22 +191,24 @@ class GeminiImageService:
 
             except Exception as e:
                 is_rate_limit = "429" in str(e) or "Resource exhausted" in str(e) or "Quota exceeded" in str(e)
+                is_timeout = "Read timed out" in str(e) or "ConnectTimeout" in str(e) or "TimeoutError" in str(e)
                 
-                if attempt < max_retries and is_rate_limit:
+                if attempt < max_retries and (is_rate_limit or is_timeout):
                     sleep_time = retry_delay * (2 ** attempt)
-                    msg = f"API Limit Hit (429). Retrying in {sleep_time}s... ({attempt + 1}/{max_retries})"
+                    reason = "API Limit Hit (429)" if is_rate_limit else "Request Timeout"
+                    msg = f"{reason}. Retrying in {sleep_time}s... ({attempt + 1}/{max_retries})"
                     logger.warning(msg)
                     
                     if progress_callback:
                         # Allow user to see we are waiting
-                        progress_callback(50, f"Waiting for Quota... ({sleep_time}s retry)")
+                        progress_callback(50, f"Waiting... {reason} ({sleep_time}s retry)")
                         
                     # Use async sleep!
                     await asyncio.sleep(sleep_time)
                     continue
                 
-                # If it's not a rate limit error, or we ran out of retries
-                if attempt == max_retries or not is_rate_limit:
+                # If it's not a retryable error, or we ran out of retries
+                if attempt == max_retries or not (is_rate_limit or is_timeout):
                     logger.exception(f"Generation failed on attempt {attempt + 1}: {str(e)}")
                     return GeminiBananaProImageOutput(
                         success=False,

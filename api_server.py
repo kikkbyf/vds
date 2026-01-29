@@ -238,7 +238,7 @@ async def submit_generate_task(request: GenerateRequest, raw_request: Request):
                             break
                 except: pass
 
-        progress_callback(30, "Calling Gemini API...")
+        progress_callback(30, "正在等待 Gemini API 响应...")
         
         # 2. Call Service
         # We need the service instance. Global 'service' is available in this module scope.
@@ -308,9 +308,80 @@ async def submit_generate_task(request: GenerateRequest, raw_request: Request):
         raise Exception("No image data returned")
 
     # Submit to Queue
-    task_id = task_queue.submit_task(worker)
+    # Pass full request data as metadata for Auto-Save
+    metadata = request.model_dump()
+    task_id = task_queue.submit_task(worker, metadata=metadata)
     return TaskResponse(task_id=task_id, status="PENDING", message="Task queued successfully")
 
+@app.post("/tasks/submit/persona", response_model=TaskResponse)
+async def submit_persona_task(request: GeneratePersonaRequest, raw_request: Request):
+    """
+    Async submission for Digital Human (Persona) generation.
+    """
+    transaction_id = raw_request.headers.get("X-Transaction-ID", f"unknown_{int(time.time())}")
+
+    async def worker(progress_callback, **kwargs):
+        progress_callback(10, "Compiling Persona...")
+        
+        # 1. Compile Prompt
+        try:
+            compiled_prompt = PromptCompiler.compile(request.persona)
+        except Exception as e:
+            raise Exception(f"Prompt Compilation Failed: {e}")
+            
+        progress_callback(30, "Generating Image...")
+
+        # 2. Call Service (Reuse generic text-to-image flow)
+        input_data = GeminiBananaProTextToImageInput(
+            prompt=compiled_prompt,
+            ratio=request.aspect_ratio,
+            image_size=request.image_size,
+            negative_prompt="low quality, bad anatomy, worst quality, unrealistic, cartoon, anime", 
+            guidance_scale=60.0,
+            enhance_prompt=False 
+        )
+        
+        result = await service.generate_image_from_text(input_data, progress_callback=progress_callback)
+        
+        progress_callback(90, "Saving Results...")
+
+        if not result.success:
+            raise Exception(result.error or "Generation failed")
+        
+        if result.image_data:
+            # 3. Log Artifacts
+            try:
+                req_dir_name = transaction_id if transaction_id else f"req_{int(time.time()*1000)}"
+                req_dir = os.path.join(LOG_BASE_DIR, req_dir_name)
+                os.makedirs(req_dir, exist_ok=True)
+                
+                # Metadata
+                with open(os.path.join(req_dir, "persona.json"), "w", encoding="utf-8") as f:
+                    json.dump(request.persona.model_dump(), f, indent=2, ensure_ascii=False)
+                
+                # Prompt
+                with open(os.path.join(req_dir, "prompt_compiled.txt"), "w", encoding="utf-8") as f:
+                    f.write(compiled_prompt)
+
+                # Image
+                with open(os.path.join(req_dir, "output.png"), "wb") as f:
+                    f.write(result.image_data)
+                    
+            except Exception as e:
+                print(f"Log error: {e}")
+
+            b64_img = base64.b64encode(result.image_data).decode('utf-8')
+            # Return complex object including metadata
+            return {
+                "image_data": f"data:image/png;base64,{b64_img}",
+                "compiled_prompt": compiled_prompt
+            }
+            
+        raise Exception("No image data returned")
+
+    metadata = request.model_dump()
+    task_id = task_queue.submit_task(worker, metadata=metadata)
+    return TaskResponse(task_id=task_id, status="PENDING", message="Persona Task Queued")
 @app.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
     task = task_queue.get_task(task_id)
@@ -327,24 +398,96 @@ async def cancel_task(task_id: str):
 
 @app.post("/generate")
 async def generate_image_legacy(request: GenerateRequest, raw_request: Request):
-    """Legacy Sync Endpoint (Optional: keep for backward compat or remove?)"""
-    # For now, let's redirect logic or warn. 
-    # Or, we can keep the old logic intact as a fallback, but the user wants to SWITCH.
-    # To be safe, let's keep the old endpoint but it's not used by the new frontend.
-    # Actually, to minimize code duplication, we could make this endpoint await the task?
-    # But Python async doesn't easily allow "awaiting" the result of a task submitted to queue 
-    # unless we polll it ourselves here.
-    return await generate_image(request, raw_request) # Call the original logic function? 
-    # The original logic was in the function body. 
-    # Let's keep the original function body rename it to `_generate_sync` if needed, 
-    # but the tool `replace_file_content` will overwrite the previous `generate_image`.
-    # So I will just leave this out or implement a simple redirect if needed.
-    # User said "Give me a plan", plan says "Change from sync to async".
-    # I will replace the old `generate_image` with a deprecated message or just remove it 
-    # if I'm sure existing frontend won't break immediately (it will, until I update frontend).
-    # Since I'm updating frontend next, it's okay to break it momentarily.
+    """Legacy Sync Endpoint (Retained for Face Swap or older clients)"""
+    transaction_id = raw_request.headers.get("X-Transaction-ID", f"unknown_{int(time.time())}")
     
-    raise HTTPException(status_code=400, detail="This endpoint is deprecated. Use /src/services/task_queue.py flow.")
+    # 1. Collect Inputs (Sync logic adapted from task worker)
+    raw_inputs = []
+    if request.image_url: raw_inputs.append(request.image_url)
+    if request.images: raw_inputs.extend(request.images)
+    
+    image_inputs = []
+    for input_item in raw_inputs:
+        if input_item.startswith("data:"):
+            try:
+                header, encoded = input_item.split(",", 1)
+                image_inputs.append(base64.b64decode(encoded))
+            except: pass
+        elif input_item.startswith("http"):
+            import requests # Lazy import
+            try:
+                resp = requests.get(input_item, timeout=30)
+                if resp.status_code == 200:
+                    image_inputs.append(resp.content)
+            except: pass
+        else:
+            try:
+                # Handle local paths
+                clean_path = input_item.lstrip("/")
+                possible_paths = [
+                   clean_path,
+                   os.path.join("public", clean_path),
+                   os.path.join(os.getcwd(), clean_path)
+                ] 
+                if "/api/uploads/" in input_item:
+                      filename = input_item.split("/api/uploads/")[-1]
+                      possible_paths.append(os.path.join("public", "uploads", filename))
+
+                for p in possible_paths:
+                    if os.path.exists(p) and os.path.isfile(p):
+                        with open(p, "rb") as f:
+                            image_inputs.append(f.read())
+                        break
+            except: pass
+
+    # 2. Call Service (Directly await)
+    def dummy_progress(p, m): pass # No-op callback
+    
+    try:
+        if image_inputs:
+            input_data = GeminiBananaProImageToImageInput(
+                prompt=request.prompt,
+                image_url=image_inputs,
+                ratio=request.aspect_ratio,
+                image_size=request.image_size,
+                negative_prompt=request.negative_prompt,
+                guidance_scale=request.guidance_scale,
+                enhance_prompt=request.enhance_prompt
+            )
+            result = await service.generate_image_from_image(input_data, progress_callback=dummy_progress)
+        else:
+            input_data = GeminiBananaProTextToImageInput(
+                prompt=request.prompt,
+                ratio=request.aspect_ratio,
+                image_size=request.image_size,
+                negative_prompt=request.negative_prompt,
+                guidance_scale=request.guidance_scale,
+                enhance_prompt=request.enhance_prompt
+            )
+            result = await service.generate_image_from_text(input_data, progress_callback=dummy_progress)
+
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.error or "Generation failed")
+            
+        if result.image_data:
+             # Log Artifacts
+            try:
+                req_dir_name = transaction_id if transaction_id else f"req_{int(time.time()*1000)}"
+                req_dir = os.path.join(LOG_BASE_DIR, req_dir_name)
+                os.makedirs(req_dir, exist_ok=True)
+                with open(os.path.join(req_dir, "output.png"), "wb") as f:
+                    f.write(result.image_data)
+            except: pass
+            
+            b64_img = base64.b64encode(result.image_data).decode('utf-8')
+            return {"image_data": f"data:image/png;base64,{b64_img}"}
+            
+        raise HTTPException(status_code=500, detail="No image data returned")
+
+    except Exception as e:
+        # Catch-all
+        print(f"Legacy Generate Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     # Host must be 127.0.0.1 for isolation

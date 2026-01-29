@@ -87,7 +87,6 @@ public/uploads/
 scripts/diagnose_startup.py
 
 # Non-core / Generated
-remotion/
 .claude/
 test_gemini_image.py
 debug_config.py

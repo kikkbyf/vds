@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate --schema=prisma/schema.prisma && ./scripts/dev-start.sh",
+    "dev": "prisma generate --schema=prisma/schema.local.prisma && ./scripts/dev-start.sh",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

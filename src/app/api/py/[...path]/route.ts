@@ -285,6 +285,114 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
             headers: { 'X-Internal-Secret': secret }
         });
         const data = await backendResponse.json();
+
+        // --- ASYNC TASK AUTO-SAVE ---
+        // Check if this is a Task Response with COMPLETED status and Image Data
+        if (data.status === 'COMPLETED' && data.result && data.result.image_data) {
+            try {
+                // Check if we should save (User must be logged in)
+                const session = await auth();
+                const userId = session?.user?.id;
+
+                if (userId) {
+                    console.log(`[Auto-Save-Async] Task ${data.id} completed. Saving...`);
+
+                    // Imports
+                    const { saveImageToStorage, saveInputImageToStorage } = await import('@/lib/storage');
+                    const { revalidatePath } = await import('next/cache');
+
+                    // 0. Check for existing record to prevent Double Save
+                    const existing = await prisma.creation.findFirst({
+                        where: { sessionId: data.id },
+                        select: { id: true }
+                    });
+
+                    if (existing) {
+                        // Already saved
+                        // console.log(`[Auto-Save-Async] Task ${data.id} already saved as ${existing.id}`);
+                    } else {
+                        // 1. Save Result Image
+                        const outputUrl = await saveImageToStorage(data.result.image_data);
+
+                        // 2. Metadata Extraction
+                        const metadata = data.metadata || {};
+                        // Handle Persona vs Standard
+                        const isPersona = !!metadata.persona;
+
+                        // Prompt Logic
+                        let finalPrompt = '';
+                        if (isPersona) {
+                            // For persona, we might want the name or description
+                            finalPrompt = `Digital Persona: ${metadata.persona.name || 'Unnamed'}`;
+                            // Or use compiled prompt if available in result?? 
+                            // Result structure from worker: { image_data: "...", compiled_prompt: "..." }
+                            if (data.result.compiled_prompt) finalPrompt += `\n\nPrompt: ${data.result.compiled_prompt}`;
+                        } else {
+                            finalPrompt = metadata.prompt || '';
+                        }
+
+                        // Params
+                        const negative = metadata.negative_prompt || '';
+                        const aspectRatio = metadata.aspect_ratio || '1:1';
+                        const imageSize = metadata.image_size || '1K';
+
+                        // Creation Type Heuristics
+                        let creationType = 'standard';
+                        if (isPersona) creationType = 'digital_human';
+                        else if (finalPrompt.toLowerCase().includes('grid') || finalPrompt.toLowerCase().includes('sheet')) creationType = 'extraction';
+
+                        // 3. Save Inputs (if any present in metadata)
+                        const inputImages = metadata.images || (metadata.image_url ? [metadata.image_url] : []);
+                        const savedInputUrls = await Promise.all(
+                            (inputImages || []).map((img: string) => saveInputImageToStorage(img))
+                        );
+
+                        // 4. Create DB Record
+                        // Use Task ID as Session ID or create new?
+                        // Task ID is unique enough. 
+                        const isSQLite = process.env.DATABASE_URL?.startsWith('file:');
+
+                        const creation = await prisma.creation.create({
+                            data: {
+                                userId: userId,
+                                prompt: finalPrompt,
+                                negative: negative,
+                                aspectRatio: aspectRatio,
+                                imageSize: imageSize,
+
+                                shotPreset: metadata.shot_preset || null,
+                                lightingPreset: metadata.lighting_preset || null,
+                                focalLength: metadata.focal_length ? Number(metadata.focal_length) : null,
+                                guidance: metadata.guidance_scale ? Number(metadata.guidance_scale) : null,
+
+                                inputImageUrls: isSQLite ? JSON.stringify(savedInputUrls) : (savedInputUrls as any),
+                                outputImageUrl: outputUrl,
+
+                                status: 'SUCCESS',
+                                // Use Task ID as session correlation
+                                sessionId: data.id,
+                                creationType: creationType
+                            }
+                        });
+
+                        console.log(`[Auto-Save-Async] Saved Creation ${creation.id}`);
+                        revalidatePath('/library');
+                    }
+                }
+            } catch (saveErr) {
+                // Duplicate key error? means already saved.
+                if ((saveErr as any).code === 'P2002') {
+                    // Unique constraint failed, likely already saved. Ignore.
+                    // But Creation ID is random CUID, so uniqueness is on... what?
+                    // We don't enforce unique sessionId. So we might double save.
+                    // To prevent double save, we should ideally check `sessionId: data.id` first.
+                } else {
+                    console.error("[Auto-Save-Async] Error:", saveErr);
+                }
+            }
+        }
+        // -----------------------------
+
         return NextResponse.json(data, { status: backendResponse.status });
     } catch (error) {
         return NextResponse.json({ error: 'Proxy failed' }, { status: 502 });

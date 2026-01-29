@@ -2,6 +2,7 @@
 
 import { Paperclip, X, Sparkles, Play, Upload } from 'lucide-react';
 import { useRef, useEffect } from 'react';
+import { TaskQueuePanel } from '../layout/TaskQueuePanel';
 
 interface Props {
     targetImage: string | null;
@@ -127,7 +128,13 @@ export function FaceSwapEditor({
 
     return (
         <div className="editor-container face-swap-editor">
-            <h2 className="main-title">AI FACE SWAP</h2>
+            <div className="header-row">
+                <h2 className="main-title">AI FACE SWAP</h2>
+                {/* Embedded Task Queue */}
+                <div className="queue-container">
+                    <TaskQueuePanel />
+                </div>
+            </div>
 
             <div className="blocks-layout">
 
@@ -218,11 +225,36 @@ export function FaceSwapEditor({
                     padding: 8px; gap: 12px;
                     overflow: hidden;
                 }
+
+                .header-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-shrink: 0;
+                    margin-bottom: 4px;
+                    min-height: 32px;
+                }
+
                 .face-swap-editor .main-title {
                     font-size: 12px; font-weight: 800; color: #fff; letter-spacing: 0.1em;
-                    margin-bottom: 8px; opacity: 0.5; text-transform: uppercase;
-                    padding-left: 4px; flex-shrink: 0;
+                    opacity: 0.5; text-transform: uppercase;
+                    padding-left: 4px;
+                    margin-bottom: 0; /* Remove bottom margin to align with queue */
                 }
+
+                .queue-container {
+                    width: 220px;
+                    max-height: 120px;
+                    overflow-y: auto;
+                    background: #000;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 8px;
+                    z-index: 20;
+                }
+                /* Hide scrollbar for queue container cleanliness */
+                .queue-container::-webkit-scrollbar { width: 4px; }
+                .queue-container::-webkit-scrollbar-track { background: transparent; }
+                .queue-container::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 
                 .face-swap-editor .blocks-layout {
                     flex: 1; min-height: 0;
@@ -376,6 +408,6 @@ export function FaceSwapEditor({
                 }
 
             `}</style>
-        </div>
+        </div >
     );
 }

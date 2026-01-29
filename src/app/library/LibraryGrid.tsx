@@ -78,7 +78,10 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
             lightingPreset: creation.lightingPreset,
             focalLength: creation.focalLength,
             guidance: creation.guidance,
-            inputImageUrls: creation.inputImageUrls
+            guidance: creation.guidance,
+            inputImageUrls: typeof creation.inputImageUrls === 'string'
+                ? JSON.parse(creation.inputImageUrls || '[]')
+                : creation.inputImageUrls
         });
 
         router.push('/');

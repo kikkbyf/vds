@@ -1,6 +1,7 @@
 import { VIEW_PROMPTS } from '@/lib/viewPrompts';
 import { useState } from 'react';
 import { DigitalPersona } from '@/interface/types/persona_types';
+import { useStudioStore } from '@/store/useStudioStore';
 
 interface Props {
     persona: DigitalPersona | null;
@@ -25,39 +26,72 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
     // Let's rely on parent to clear if needed, or simple effect.
     // For now, simple logic:
 
-    // Determine the effective image to show: Uploaded > Generated
+    const { submitGenericTask, activeTasks } = useStudioStore(); // Import store action & activeTasks to track status
+
+    // Check if there is an active persona task running
+    const runningPersonaTask = activeTasks.find(t => t.type === 'persona' && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.status));
+
+    // Check for completed persona task with result
+    const completedPersonaTask = activeTasks.find(t => t.type === 'persona' && t.status === 'COMPLETED' && t.thumbnail);
+
+    // Check for completed extraction tasks
+    const completedHeadshotTask = activeTasks.find(t =>
+        t.type === 'extraction' &&
+        t.status === 'COMPLETED' &&
+        t.thumbnail &&
+        t.name?.includes('Headshot')
+    );
+    const completedTurnaroundTask = activeTasks.find(t =>
+        t.type === 'extraction' &&
+        t.status === 'COMPLETED' &&
+        t.thumbnail &&
+        t.name?.includes('Turnaround')
+    );
+
+    // Derive extracted assets from completed tasks OR local state
+    const derivedExtractedAssets = (completedHeadshotTask?.thumbnail || completedTurnaroundTask?.thumbnail)
+        ? {
+            headshot: completedHeadshotTask?.thumbnail || extractedAssets?.headshot || '',
+            turnaround: completedTurnaroundTask?.thumbnail || extractedAssets?.turnaround || ''
+        }
+        : extractedAssets;
+
+    // Determine the effective image to show: Uploaded > Completed Task > Local State
     // If uploadedImage is present, we are in "Image Mode".
-    const activeImage = uploadedImage || resultImage;
+    const activeImage = uploadedImage || completedPersonaTask?.thumbnail || resultImage;
     const isImageMode = !!uploadedImage;
+
+    // If there is a running task, we are generating. Overrides local isGenerating.
+    const isGeneratingState = isGenerating || !!runningPersonaTask;
+
+    // Check if any extraction is in progress
+    const runningExtractionTask = activeTasks.find(t => t.type === 'extraction' && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.status));
+    const isExtractingState = isExtracting || !!runningExtractionTask;
 
     const handleGenerate = async () => {
         if (!persona) return;
-        setIsGenerating(true);
+        setIsGenerating(true); // Temporarily set true until task is queued
         setResultImage(null);
 
         try {
-            const res = await fetch('/api/py/generate_persona', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            await submitGenericTask(
+                '/api/py/tasks/submit/persona',
+                {
                     persona: persona,
                     image_size: genResolution,
                     aspect_ratio: aspectRatio
-                }),
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.details || 'Generation failed');
-            }
-
-            const data = await res.json();
-            setResultImage(data.image_data);
+                },
+                'persona',
+                `Persona Generation`
+            );
+            // Task is queued, global 'activeTasks' will now contain it.
+            // The derived 'isGeneratingState' will keep true.
+            // We can unset local isGenerating now.
+            setIsGenerating(false);
 
         } catch (e: any) {
             console.error(e);
-            alert(`Generation failed: ${e.message}`);
-        } finally {
+            alert(`Submission failed: ${e.message}`);
             setIsGenerating(false);
         }
     };
@@ -95,33 +129,21 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         }
 
         try {
-            // Run in parallel
-            const results = await Promise.all(tasks.map(task =>
-                fetch('/api/py/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(task.payload)
-                }).then(async res => {
-                    if (!res.ok) throw new Error(`${task.name} failed`);
-                    const data = await res.json();
-                    return { key: task.key, data: data.image_data };
-                })
-            ));
-
-            console.log("Extraction complete", results);
-
-            // Merge new results with existing assets
-            setExtractedAssets(prev => {
-                const newAssets: any = { ...prev };
-                results.forEach(r => {
-                    if (r.data) newAssets[r.key] = r.data;
-                });
-                return newAssets as { headshot: string, turnaround: string };
-            });
+            // Submit all tasks to queue (async, don't wait for completion)
+            for (const task of tasks) {
+                await submitGenericTask(
+                    '/api/py/tasks/submit/generate',
+                    task.payload,
+                    'extraction',
+                    `Extracting ${task.name}`
+                );
+            }
+            // 任务已提交到队列，用户可以在全局任务面板查看进度
+            // 不再等待同步返回结果
 
         } catch (e: any) {
             console.error(e);
-            alert(`Extraction failed: ${e.message}`);
+            alert(`Extraction submission failed: ${e.message}`);
         } finally {
             setIsExtracting(false);
         }
@@ -131,7 +153,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         return null;
     }
 
-    const isTechnicalMode = !!extractedAssets;
+    const isTechnicalMode = !!derivedExtractedAssets;
 
     const getCost = () => {
         if (genResolution === '4K') return 5;
@@ -185,10 +207,10 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                             </div>
                             <button
                                 onClick={handleGenerate}
-                                disabled={isGenerating}
+                                disabled={isGeneratingState}
                                 className="gen-btn"
                             >
-                                {isGenerating ? '渲染中...' : '生成'}
+                                {isGeneratingState ? '渲染中...' : '生成'}
                             </button>
                         </div>
                     </div>
@@ -204,10 +226,25 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                 )}
 
                 <div className="canvas">
-                    {isGenerating && (
+                    {isGeneratingState && (
                         <div className="loading-overlay">
                             <div className="spinner" />
                             <p className="loading-text">Vertex AI 正在构想...</p>
+                            {/* Show Progress from the running task if available */}
+                            {runningPersonaTask && (
+                                <div className="mt-4 w-64 max-w-[80%]">
+                                    <div className="flex justify-between text-[10px] text-white/60 mb-1 uppercase tracking-wider">
+                                        <span>{runningPersonaTask.message || "Processing..."}</span>
+                                        <span>{Math.round(runningPersonaTask.progress)}%</span>
+                                    </div>
+                                    <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                                            style={{ width: `${runningPersonaTask.progress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -243,7 +280,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                             {/* [NEW] Individual Buttons */}
                             <button
                                 onClick={() => handleExtract('headshot')}
-                                disabled={isExtracting}
+                                disabled={isExtractingState}
                                 className="extract-btn secondary"
                                 title="提取面部四视图"
                             >
@@ -252,7 +289,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
 
                             <button
                                 onClick={() => handleExtract('turnaround')}
-                                disabled={isExtracting}
+                                disabled={isExtractingState}
                                 className="extract-btn secondary"
                                 title="提取全身三视图"
                             >
@@ -262,11 +299,11 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                             {/* Existing One-Click Button */}
                             <button
                                 onClick={() => handleExtract('all')}
-                                disabled={isExtracting}
+                                disabled={isExtractingState}
                                 className="extract-btn primary"
                                 title="一键提取所有视图"
                             >
-                                {isExtracting ? (
+                                {isExtractingState ? (
                                     <span className="flex-center">
                                         <span className="mini-spinner"></span> 提取中...
                                     </span>
@@ -278,25 +315,25 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             </div>
 
             {/* Right Pane: Technical Assets (Only in Technical Mode) */}
-            {extractedAssets && (
+            {derivedExtractedAssets && (
                 <div className="pane-technical">
                     {/* 1. Turnaround Sheet (Primary - Huge) */}
-                    {extractedAssets.turnaround && (
+                    {derivedExtractedAssets.turnaround && (
                         <div className="tech-asset primary">
                             <div className="asset-header">
                                 <span className="badge">{resolution}</span> Turnaround Sheet (Full Body)
                             </div>
-                            <img src={extractedAssets.turnaround} className="tech-img" />
+                            <img src={derivedExtractedAssets.turnaround} className="tech-img" />
                         </div>
                     )}
 
                     {/* 2. Headshot Grid (Secondary - Independent) */}
-                    {extractedAssets.headshot && (
+                    {derivedExtractedAssets.headshot && (
                         <div className="tech-asset secondary">
                             <div className="asset-header">
-                                <span className="badge">{resolution}</span> Technical Headshot Grid
+                                <span className="badge">{resolution}</span> Headshot Grid
                             </div>
-                            <img src={extractedAssets.headshot} className="tech-img" />
+                            <img src={derivedExtractedAssets.headshot} className="tech-img" />
                         </div>
                     )}
                 </div>

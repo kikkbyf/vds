@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen, RefreshCcw } from 'lucide-react';
+import { TaskQueuePanel } from './TaskQueuePanel';
+import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen, RefreshCcw, List } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-// import { getPendingUsers } from '@/actions/admin';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useAssetStore } from '@/store/useAssetStore';
 import dynamic from 'next/dynamic';
@@ -19,10 +19,12 @@ export default function Sidebar() {
     const { data: session } = useSession();
 
     const [showAdmin, setShowAdmin] = useState(false);
+    const [showTasks, setShowTasks] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
 
     // Global Store
     const credits = useStudioStore(s => s.credits);
+    const activeTasks = useStudioStore(s => s.activeTasks);
     const fetchCredits = useStudioStore(s => s.fetchCredits);
 
     const isAdmin = session?.user?.role === 'ADMIN';
@@ -110,6 +112,39 @@ export default function Sidebar() {
                 </div>
 
                 <div className="sidebar-bottom">
+                    {/* Task Queue Trigger */}
+                    <div className="relative group">
+                        <button
+                            className={`nav-item ${activeTasks.length > 0 ? 'text-blue-400' : ''}`}
+                            onClick={() => setShowTasks(!showTasks)}
+                            title="Task Queue"
+                        >
+                            <List size={20} />
+                            {activeTasks.length > 0 && (
+                                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse border border-[#1a1a1a]" />
+                            )}
+                        </button>
+
+                        {/* Task Panel Popover - Fixed positioning to escape sidebar constraints */}
+                        {showTasks && (
+                            <div className="fixed left-[60px] bottom-4 w-80 bg-[#121212] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[99999]">
+                                <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/5">
+                                    <span className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                        Task Queue ({activeTasks.length})
+                                    </span>
+                                    <button
+                                        onClick={() => setShowTasks(false)}
+                                        className="text-white/40 hover:text-white transition-colors h-6 w-6 flex items-center justify-center rounded hover:bg-white/10"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <TaskQueuePanel />
+                            </div>
+                        )}
+                    </div>
+
                     <button className="nav-item" onClick={handleLogout} title="Sign Out">
                         <LogOut size={20} />
                     </button>

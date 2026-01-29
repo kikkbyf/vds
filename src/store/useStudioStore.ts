@@ -4,12 +4,13 @@ import { generatePrompt } from '@/utils/promptUtils';
 
 export interface TaskItem {
     id: string;
-    type: 'generation';
+    type: string; // 'generation', 'persona', 'extraction', etc.
     status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
     progress: number;
     message: string;
     startTime: number;
     prompt: string; // Metadata for UI
+    name?: string; // Optional task name for UI display
     thumbnail?: string; // Optional result thumbnail
 }
 
@@ -90,6 +91,8 @@ interface StudioState {
     removeActiveTask: (taskId: string) => void;
     updateTaskStatus: (taskId: string, status: string, progress: number, message: string, result?: any) => void;
     cancelTask: (taskId: string) => Promise<void>;
+
+    submitGenericTask: (endpoint: string, payload: any, taskType?: string, promptStr?: string) => Promise<string>;
 
     generateImage: () => Promise<void>;
 
@@ -227,6 +230,46 @@ export const useStudioStore = create<StudioState>()(
                 }
             },
 
+            submitGenericTask: async (endpoint: string, payload: any, taskType?: string, promptStr?: string) => {
+                const { addActiveTask, setGenerationStatus } = get();
+
+                try {
+                    setGenerationStatus('Submitting Task...');
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Submission failed');
+                    }
+
+                    const data = await response.json();
+
+                    addActiveTask({
+                        id: data.task_id,
+                        type: taskType || 'generic',
+                        status: 'PENDING',
+                        progress: 0,
+                        message: 'Queued',
+                        startTime: Date.now(),
+                        prompt: promptStr || 'Async Task',
+                        name: promptStr || 'Async Task' // 用于 UI 显示和任务识别
+                    });
+
+                    setGenerationStatus('Task Queued');
+                    startTaskPoller(get, set);
+                    return data.task_id;
+
+                } catch (error) {
+                    console.error("Generic Task Submission failed:", error);
+                    setGenerationStatus('Error: ' + (error as Error).message);
+                    throw error;
+                }
+            },
+
             generateImage: async () => {
                 const {
                     uploadedImages, shotPreset, focalLength, lightingPreset, isGenerating,
@@ -315,8 +358,8 @@ export const useStudioStore = create<StudioState>()(
                 guidanceScale: state.guidanceScale,
                 negativePrompt: state.negativePrompt,
                 enhancePrompt: state.enhancePrompt,
-                viewMode: state.viewMode,
-                activeTasks: state.activeTasks
+                viewMode: state.viewMode
+                // NOTE: activeTasks NOT persisted - contains large base64 thumbnails that overflow localStorage
             }),
         }
     )
