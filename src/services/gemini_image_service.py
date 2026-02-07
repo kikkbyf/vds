@@ -149,6 +149,10 @@ class GeminiImageService:
                 # 2. Send Request (Non-blocking)
                 url = f"https://aiplatform.googleapis.com/v1beta1/projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model}:generateContent"
                 
+                # Debug: Print payload for troubleshooting
+                logger.info(f"[DEBUG] API URL: {url}")
+                logger.info(f"[DEBUG] Payload: aspectRatio={aspect_ratio}, imageSize={image_size}, num_images={len(images) if images else 0}")
+                
                 # Run sync requests in thread pool to avoid blocking asyncio loop
                 loop = asyncio.get_running_loop()
                 # Reduced timeout to 180s to fail fast

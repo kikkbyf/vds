@@ -167,6 +167,7 @@ export function FaceSwapEditor({
                         <textarea
                             value={extraPrompt}
                             onChange={(e) => setExtraPrompt(e.target.value)}
+                            onKeyDown={(e) => e.stopPropagation()} // 阻止键盘事件冒泡
                             placeholder="例如: 微笑着, 眼神看向左侧..."
                             className="magic-textarea"
                         />

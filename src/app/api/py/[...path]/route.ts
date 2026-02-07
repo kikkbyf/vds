@@ -37,9 +37,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         userId = session.user.id;
 
         // --- DEV BYPASS ---
-        if (userId === 'dev-admin') {
-            console.log(`[Billing] [${transactionId}] Skipping billing check for dev-admin`);
-            shouldBill = false; // Disable billing for this request
+        const isDev = process.env.NODE_ENV === 'development';
+        if (isDev || userId === 'dev-admin') {
+            console.log(`[Billing] [${transactionId}] DEV MODE - Skipping billing check (userId: ${userId})`);
+            shouldBill = false; // 本地开发环境无限积分
         } else {
             // Parse to find cost
             try {
