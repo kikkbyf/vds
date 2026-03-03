@@ -14,6 +14,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
     const [resultImage, setResultImage] = useState<string | null>(null);
     const [extractedAssets, setExtractedAssets] = useState<{ headshot: string, turnaround: string } | null>(null);
     const [resolution, setResolution] = useState<"1K" | "2K" | "4K">("4K");
+    const [extractionStyle, setExtractionStyle] = useState<'realistic' | 'oil_painting'>('realistic');
 
     // Generation Settings
     const [aspectRatio, setAspectRatio] = useState<string>("1:1");
@@ -101,13 +102,15 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
         setIsExtracting(true);
 
         const tasks = [];
+        
+        const styleSuffix = extractionStyle === 'oil_painting' ? `\n\n[STYLE OVERRIDE]\n${VIEW_PROMPTS.OIL_PAINTING_STYLE}` : "";
 
         if (mode === 'all' || mode === 'headshot') {
             tasks.push({
                 name: 'Headshot Grid',
                 key: 'headshot',
                 payload: {
-                    prompt: VIEW_PROMPTS.HEADSHOT_GRID,
+                    prompt: VIEW_PROMPTS.HEADSHOT_GRID + styleSuffix,
                     aspect_ratio: "1:1",
                     image_size: resolution,
                     images: [activeImage],
@@ -120,7 +123,7 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                 name: 'Turnaround Sheet',
                 key: 'turnaround',
                 payload: {
-                    prompt: VIEW_PROMPTS.TURNAROUND_SHEET,
+                    prompt: VIEW_PROMPTS.TURNAROUND_SHEET + styleSuffix,
                     aspect_ratio: "4:3",
                     image_size: resolution,
                     images: [activeImage]
@@ -267,6 +270,17 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
                         </div>
 
                         <div className="right-controls">
+                            <div className="style-toggle">
+                                <button 
+                                    className={`style-btn ${extractionStyle === 'realistic' ? 'active' : ''}`}
+                                    onClick={() => setExtractionStyle('realistic')}
+                                >写实</button>
+                                <button 
+                                    className={`style-btn ${extractionStyle === 'oil_painting' ? 'active' : ''}`}
+                                    onClick={() => setExtractionStyle('oil_painting')}
+                                >油画</button>
+                            </div>
+
                             <select
                                 className="resolution-select"
                                 value={resolution}
@@ -630,6 +644,36 @@ export function PersonaResult({ persona, uploadedImage }: Props) {
             flex-wrap: wrap; /* Allow controls themselves to wrap if extremely tight */
             justify-content: flex-end;
             flex: 2 1 auto; /* Allow controls to take more space */
+        }
+        
+        .style-toggle {
+            display: flex;
+            background: #222;
+            border-radius: 6px;
+            padding: 2px;
+            border: 1px solid #444;
+        }
+        
+        .style-btn {
+            background: transparent;
+            color: #888;
+            border: none;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .style-btn:hover {
+            color: #ccc;
+        }
+        
+        .style-btn.active {
+            background: #444;
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .resolution-select {

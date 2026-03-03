@@ -32,5 +32,48 @@ Scale: All views must be aligned at the same floor level and head height.
 - Background: Pure solid #FFFFFF White.
 - Pose: Neutral Standing A-Pose (Arms relaxed at sides, legs straight).
 - Framing: Full body, Head to Toe.
-- Quality: 4K resolution, clean edges, production-ready reference.`
+- Quality: 4K resolution, clean edges, production-ready reference.`,
+
+    OIL_PAINTING_STYLE: `Transform the original photograph into a museum-grade oil painting while preserving 100% structural fidelity to the source image.
+
+Do NOT alter composition, camera angle, crop ratio, perspective, anatomy, gaze direction, facial proportions, pose, lighting direction, or focal length compression. The original framing and spatial hierarchy must remain locked.
+
+Translate digital lighting into physical oil paint logic:
+- Highlights rendered with controlled impasto thickness
+- Midtones modeled with directional bristle brushwork following anatomical planes
+- Shadows built through layered glazing, subtle pigment transparency
+- Preserve original light temperature and contrast
+
+Replace photographic smoothness with tactile material realism:
+- Visible hog-bristle brush strokes
+- Palette knife edge transitions in background
+- Natural canvas weave texture subtly visible
+- Slight pigment grit in darker passages
+- Micro-variations in oil viscosity
+
+Skin rendering:
+- No airbrushed smoothing
+- Preserve pores, micro texture, natural asymmetry
+- Use fine sable brush detailing for eyes and key facial features
+- Maintain likeness accuracy
+
+Edges:
+- Focal areas crisp with deliberate stroke direction
+- Secondary areas softened through painterly blending, not blur
+
+Background:
+- Maintain original depth structure
+- Convert bokeh or blur into abstract painterly mass with broad brush movement
+
+Forbid:
+anime, cartoon, Pixar style, 3D render, CGI, plastic skin, beauty filter, over-smoothing, stylization drift, fantasy reinterpretation.
+
+Result must resemble a tangible, hand-painted oil painting on stretched canvas, gallery-level realism.
+
+Increase painterly abstraction slightly:
+- Broader, more visible brush strokes
+- Stronger impasto texture in highlights
+- Slight simplification of micro-detail while keeping likeness intact
+- Expressive stroke direction following facial structure
+- Controlled reduction of hyper-real micro sharpness`
 };
