@@ -8,6 +8,78 @@ interface Props {
     setPersona: Dispatch<SetStateAction<DigitalPersona | null>>;
 }
 
+const InputRow = ({ label, value, onChange }: { label: string, value: string | number, onChange: (v: string) => void }) => (
+    <div className="input-group">
+        <label>{label}</label>
+        <input
+            type={typeof value === 'number' ? 'number' : 'text'}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+        />
+        <style jsx>{`
+    .input-group {
+        margin-bottom: 12px;
+    }
+    label {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+        letter-spacing: 0.05em;
+    }
+    input {
+        width: 100%;
+        background: #222;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 12px;
+        color: var(--text-primary);
+        font-family: var(--font-sans);
+        transition: border-color 0.2s;
+    }
+    input:focus {
+        outline: none;
+        border-color: var(--text-muted);
+    }
+  `}</style>
+    </div>
+);
+
+const Section = ({ title, color, children }: { title: string, color: string, children: React.ReactNode }) => (
+    <section className="section">
+        <h3 style={{ borderLeftColor: color }}>{title}</h3>
+        <div className="content">{children}</div>
+        <style jsx>{`
+        .section {
+            margin-bottom: 32px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        h3 {
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-left: 8px;
+            border-left: 3px solid #ccc;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    `}</style>
+    </section>
+);
+
 export function PersonaEditor({ persona, setPersona }: Props) {
 
     const updateField = (section: Exclude<keyof DigitalPersona, 'additional_prompt'>, field: string, value: any) => {
@@ -22,78 +94,6 @@ export function PersonaEditor({ persona, setPersona }: Props) {
             };
         });
     };
-
-    const InputRow = ({ label, value, onChange }: { label: string, value: string | number, onChange: (v: string) => void }) => (
-        <div className="input-group">
-            <label>{label}</label>
-            <input
-                type={typeof value === 'number' ? 'number' : 'text'}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-            />
-            <style jsx>{`
-        .input-group {
-            margin-bottom: 12px;
-        }
-        label {
-            display: block;
-            font-size: 10px;
-            text-transform: uppercase;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            letter-spacing: 0.05em;
-        }
-        input {
-            width: 100%;
-            background: #222;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 4px;
-            padding: 8px;
-            font-size: 12px;
-            color: var(--text-primary);
-            font-family: var(--font-sans);
-            transition: border-color 0.2s;
-        }
-        input:focus {
-            outline: none;
-            border-color: var(--text-muted);
-        }
-      `}</style>
-        </div>
-    );
-
-    const Section = ({ title, color, children }: { title: string, color: string, children: React.ReactNode }) => (
-        <section className="section">
-            <h3 style={{ borderLeftColor: color }}>{title}</h3>
-            <div className="content">{children}</div>
-            <style jsx>{`
-            .section {
-                margin-bottom: 32px;
-                animation: fadeIn 0.5s ease-out;
-            }
-            h3 {
-                font-size: 12px;
-                font-weight: bold;
-                color: var(--text-primary);
-                margin-bottom: 16px;
-                padding-left: 8px;
-                border-left: 3px solid #ccc;
-                text-transform: uppercase;
-                letter-spacing: 0.1em;
-            }
-            .content {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `}</style>
-        </section>
-    );
 
     return (
         <div className="editor-container">
