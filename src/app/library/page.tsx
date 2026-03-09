@@ -2,6 +2,72 @@ import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import LibraryContent from './LibraryContent';
 import { redirect } from 'next/navigation';
+import type { Prisma } from '@prisma/client';
+import type { FullCreation } from './LibraryGrid';
+import { isAdminRole } from '@/lib/roles';
+
+function normalizeCreationType(value: string | null | undefined): FullCreation['creationType'] {
+    if (value === 'extraction' || value === 'digital_human' || value === 'standard') {
+        return value;
+    }
+    return undefined;
+}
+
+type LocalCreationLike = {
+    id: string;
+    userId: string;
+    prompt: string;
+    negative?: string | null;
+    aspectRatio: string;
+    imageSize: string;
+    shotPreset?: string | null;
+    lightingPreset?: string | null;
+    focalLength?: number | null;
+    guidance?: number | null;
+    inputImageUrls: string[];
+    outputImageUrl: string;
+    status: string;
+    createdAt: Date | string;
+    sessionId?: string | null;
+    creationType?: string | null;
+    visible?: boolean;
+    deletedAt?: Date | string | null;
+    user?: {
+        name?: string | null;
+        email: string;
+        image?: string | null;
+    } | null;
+};
+
+function normalizeLocalCreation(item: LocalCreationLike): FullCreation {
+    return {
+        id: item.id,
+        userId: item.userId,
+        prompt: item.prompt,
+        negative: item.negative ?? null,
+        aspectRatio: item.aspectRatio,
+        imageSize: item.imageSize,
+        shotPreset: item.shotPreset ?? null,
+        lightingPreset: item.lightingPreset ?? null,
+        focalLength: item.focalLength ?? null,
+        guidance: item.guidance ?? null,
+        inputImageUrls: Array.isArray(item.inputImageUrls) ? item.inputImageUrls : [],
+        outputImageUrl: item.outputImageUrl,
+        status: item.status,
+        createdAt: new Date(item.createdAt),
+        sessionId: item.sessionId ?? undefined,
+        creationType: normalizeCreationType(item.creationType),
+        visible: item.visible ?? true,
+        deletedAt: item.deletedAt ?? null,
+        user: item.user
+            ? {
+                name: item.user.name ?? null,
+                email: item.user.email,
+                image: item.user.image ?? null,
+            }
+            : null,
+    };
+}
 
 export default async function LibraryPage() {
     const session = await auth();
@@ -10,15 +76,15 @@ export default async function LibraryPage() {
     }
 
     // Direct DB Query (No Server Action)
-    let user = null;
-    let creations: any[] = [];
+    let user: { role: string } | null = null;
+    let creations: FullCreation[] = [];
     let isAdmin = false;
 
     try {
         user = await prisma.user.findUnique({ where: { id: session.user.id } });
-        isAdmin = user?.role === 'ADMIN';
+        isAdmin = isAdminRole(user?.role);
 
-        const where: any = isAdmin ? {} : { userId: session.user.id };
+        const where: Prisma.CreationWhereInput = isAdmin ? {} : { userId: session.user.id };
 
         // Non-admins (and arguably admins too, unless separate view) shouldn't see soft-deleted items by default
         // But for "Hide" logic:
@@ -32,7 +98,7 @@ export default async function LibraryPage() {
             where.deletedAt = null;
         }
 
-        creations = await prisma.creation.findMany({
+        const dbCreations = await prisma.creation.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             include: { user: true }
@@ -40,17 +106,41 @@ export default async function LibraryPage() {
 
         // [LOCAL-DEV-FIX] SQLite Compatibility: Parse JSON strings back to Arrays
         // Since we use String type for arrays in SQLite schema
-        creations = creations.map(c => ({
-            ...c,
+        creations = dbCreations.map((c) => ({
+            id: c.id,
+            userId: c.userId,
+            prompt: c.prompt,
+            negative: c.negative,
+            aspectRatio: c.aspectRatio,
+            imageSize: c.imageSize,
+            shotPreset: c.shotPreset,
+            lightingPreset: c.lightingPreset,
+            focalLength: c.focalLength,
+            guidance: c.guidance,
             inputImageUrls: typeof c.inputImageUrls === 'string'
                 ? JSON.parse(c.inputImageUrls || '[]')
                 : c.inputImageUrls,
+            outputImageUrl: c.outputImageUrl,
+            status: c.status,
+            createdAt: c.createdAt,
+            sessionId: c.sessionId ?? undefined,
+            creationType: normalizeCreationType(c.creationType),
+            visible: c.visible,
+            deletedAt: c.deletedAt,
+            user: c.user
+                ? {
+                    name: c.user.name,
+                    email: c.user.email,
+                    image: c.user.image ?? null,
+                }
+                : null
         }));
-    } catch (error) {
+    } catch {
         console.warn("DB Connection failed, switching to Local File Mode");
         // Fallback to local file system scan
         const { getLocalCreations } = await import('@/lib/localLibrary');
-        creations = await getLocalCreations();
+        const localCreations = await getLocalCreations();
+        creations = localCreations.map((item) => normalizeLocalCreation(item as LocalCreationLike));
         isAdmin = true; // Always admin in local dev
     }
 
@@ -61,7 +151,7 @@ export default async function LibraryPage() {
         console.log("Merging local file system logs...");
         try {
             const { getLocalCreations } = await import('@/lib/localLibrary');
-            const fileCreations = await getLocalCreations();
+            const fileCreations = (await getLocalCreations()).map((item) => normalizeLocalCreation(item as LocalCreationLike));
             if (fileCreations.length > 0) {
                 // Merge and dedup by ID (if necessary, though local IDs are usually timestamps/UUIDs)
                 const existingIds = new Set(creations.map(c => c.id));
@@ -94,7 +184,7 @@ export default async function LibraryPage() {
 
     return (
         <main className="studio-layout">
-            <LibraryContent creations={creations as any} isAdmin={isAdmin} />
+            <LibraryContent creations={creations} isAdmin={isAdmin} />
         </main>
     );
 }

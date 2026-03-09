@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import prisma from '@/lib/prisma';
 import fs from 'fs';
 import path from 'path';
+import { isAdminRole } from '@/lib/roles';
 
 const LOG_ROOT = path.join(process.cwd(), '_generation_logs');
 
 export async function GET(req: NextRequest) {
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
+    if (!session?.user?.id || !isAdminRole(session.user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
             // Read session.json
             const jsonPath = path.join(sessionPath, 'session.json');
-            let data: any = {};
+            let data: Record<string, unknown> = {};
             if (fs.existsSync(jsonPath)) {
                 data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             }
@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
                 output: outputImage
             });
 
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error(error);
             return NextResponse.json({ error: 'Failed to read details' }, { status: 500 });
         }
     }
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
         }));
 
         return NextResponse.json(sessions);
-    } catch (e) {
+    } catch {
         return NextResponse.json({ error: 'Failed to list logs' }, { status: 500 });
     }
 }

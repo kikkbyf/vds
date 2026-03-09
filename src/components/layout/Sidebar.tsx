@@ -5,10 +5,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { TaskQueuePanel } from './TaskQueuePanel';
 import { Home, Image as ImageIcon, LogOut, Shield, Coins, FolderOpen, RefreshCcw, List } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useAssetStore } from '@/store/useAssetStore';
 import dynamic from 'next/dynamic';
+import { isAdminRole } from '@/lib/roles';
 
 const AdminPanelModal = dynamic(() => import('@/components/library/AdminPanelModal'), { ssr: false });
 const AssetManagerDrawer = dynamic(() => import('@/components/assets/AssetManagerDrawer'), { ssr: false });
@@ -27,11 +28,11 @@ export default function Sidebar() {
     const activeTasks = useStudioStore(s => s.activeTasks);
     const fetchCredits = useStudioStore(s => s.fetchCredits);
 
-    const isAdmin = session?.user?.role === 'ADMIN';
+    const isAdmin = isAdminRole(session?.user?.role);
 
     const isActive = (path: string) => pathname === path;
 
-    const checkPending = async () => {
+    const checkPending = useCallback(async () => {
         try {
             const res = await fetch('/api/admin/pending');
             if (res.ok) {
@@ -41,7 +42,7 @@ export default function Sidebar() {
         } catch (e) {
             console.error(e);
         }
-    };
+    }, []);
 
     useEffect(() => {
         // Fetch credits for everyone
@@ -50,17 +51,22 @@ export default function Sidebar() {
         }
 
         if (isAdmin) {
-            // Initial fetch
-            checkPending();
+            // 延迟到下一轮事件循环，避免 effect 内同步触发 state 更新
+            const initialTimer = setTimeout(() => {
+                void checkPending();
+            }, 0);
 
             // Poll every 30s
             const interval = setInterval(() => {
-                checkPending();
+                void checkPending();
                 fetchCredits(); // Poll credits too
             }, 30000);
-            return () => clearInterval(interval);
+            return () => {
+                clearTimeout(initialTimer);
+                clearInterval(interval);
+            };
         }
-    }, [session, isAdmin]);
+    }, [session?.user, isAdmin, fetchCredits, checkPending]);
 
     const handleLogout = async () => {
         await signOut({ redirect: false });

@@ -1,9 +1,15 @@
 'use client';
 
 import { X, Check, Trash2, Coins, BookOpen, ArrowLeft } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { normalizeRole } from '@/lib/roles';
 // import { getAllUsers, approveUser, rejectUser, updateUserCredits, getUserLogs } from '@/actions/admin'; // Removed Server Actions
+
+const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    return 'Failed to load users.';
+};
 
 export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     interface User {
@@ -16,6 +22,13 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
         lastActiveAt?: Date | string | null;
     }
 
+    interface CreditLogItem {
+        id: string;
+        createdAt: Date | string;
+        reason: string;
+        amount: number;
+    }
+
     const [users, setUsers] = useState<User[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,11 +38,11 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
 
     // Log View State
     const [viewLogsId, setViewLogsId] = useState<string | null>(null);
-    const [logs, setLogs] = useState<any[]>([]);
+    const [logs, setLogs] = useState<CreditLogItem[]>([]);
     const [logsLoading, setLogsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -43,13 +56,13 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
 
             setUsers(list);
             setFilteredUsers(list);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || 'Failed to load users.');
+            setError(getErrorMessage(err));
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const loadLogs = async (userId: string) => {
         setLogsLoading(true);
@@ -82,7 +95,7 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         setMounted(true);
         loadUsers();
-    }, []);
+    }, [loadUsers]);
 
     const handleApprove = async (id: string) => {
         // Replaced approveUser(id)
@@ -194,6 +207,7 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                                     className="search-input"
                                 />
                             </div>
+                            {error && <div className="error-banner">{error}</div>}
                             {loading ? (
                                 <div className="loading">Loading database...</div>
                             ) : (
@@ -213,8 +227,8 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                                                 <tr key={u.id} className={!u.approved ? 'pending-row' : ''}>
                                                     <td>{u.email}</td>
                                                     <td>
-                                                        <span className={`role-badge ${u.role === 'ADMIN' ? 'admin' : ''}`}>
-                                                            {u.role}
+                                                        <span className={`role-badge ${normalizeRole(u.role) === 'ADMIN' ? 'admin' : ''}`}>
+                                                            {normalizeRole(u.role)}
                                                         </span>
                                                     </td>
                                                     <td>
@@ -382,6 +396,15 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
                 }
                 .search-input:focus {
                     border-color: var(--accent-blue);
+                }
+                .error-banner {
+                    margin-bottom: 12px;
+                    padding: 8px 10px;
+                    border-radius: 6px;
+                    border: 1px solid rgba(239, 68, 68, 0.35);
+                    background: rgba(239, 68, 68, 0.12);
+                    color: #fecaca;
+                    font-size: 12px;
                 }
 
                 .table-container {

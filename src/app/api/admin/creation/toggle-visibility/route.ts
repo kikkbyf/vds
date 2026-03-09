@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { isAdminRole } from '@/lib/roles';
 
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
         // Double check admin role
-        if (session?.user?.role !== 'ADMIN') {
+        if (!isAdminRole(session?.user?.role)) {
             // Fallback DB check
             const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-            if (user?.role !== 'ADMIN') {
+            if (!isAdminRole(user?.role)) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
             }
         }

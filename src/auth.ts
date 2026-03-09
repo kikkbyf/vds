@@ -4,6 +4,7 @@ import { z } from 'zod';
 import prisma from './lib/prisma';
 import bcrypt from 'bcryptjs';
 import { authConfig } from './auth.config';
+import { normalizeRole } from './lib/roles';
 
 // Define the auth options separately if needed, but NextAuth v5 style uses simple config
 export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
@@ -28,13 +29,22 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                     // If no email/password provided (or specific bypass defaults), and we are local
                     if (isDev && (!email || !password || (email === 'admin@example.com' && password === 'bypass'))) {
                         console.log('⚡️ Using Dev Bypass Login');
-                        // [LOCAL-DEV-FIX] Try to find the real user ID to ensure DB relations (like Heartbeat) work
-                        const dbUser = await prisma.user.findUnique({ where: { email: 'admin@example.com' } });
+                        let devUserId = 'dev-admin';
+                        if (process.env.DATABASE_URL) {
+                            try {
+                                const dbUser = await prisma.user.findUnique({ where: { email: 'admin@example.com' } });
+                                if (dbUser?.id) {
+                                    devUserId = dbUser.id;
+                                }
+                            } catch (err) {
+                                console.warn('Dev bypass DB lookup failed, fallback to dev-admin:', err);
+                            }
+                        }
 
                         return {
-                            id: dbUser?.id || 'dev-admin', // Use real ID if exists, else fallback
+                            id: devUserId,
                             email: 'admin@example.com',
-                            role: 'admin',
+                            role: 'ADMIN',
                             approved: true,
                         };
                     }
@@ -45,7 +55,13 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                         return null;
                     }
 
-                    const user = await prisma.user.findUnique({ where: { email } });
+                    let user = null;
+                    try {
+                        user = await prisma.user.findUnique({ where: { email } });
+                    } catch (err) {
+                        console.error('User lookup failed:', err);
+                        return null;
+                    }
                     if (!user) return null;
 
                     if (!user.approved) {
@@ -65,7 +81,7 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                token.role = user.role;
+                token.role = normalizeRole(user.role);
                 token.approved = user.approved;
                 token.sub = user.id;
             }
@@ -79,7 +95,7 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
 
                 // Skip DB check for dev bypass user
                 if (token.sub === 'dev-admin') {
-                    dbUser = { role: 'admin', approved: true };
+                    dbUser = { role: 'ADMIN', approved: true };
                 } else {
                     try {
                         dbUser = await prisma.user.findUnique({
@@ -101,15 +117,15 @@ export const { auth, signIn, signOut, handlers: { GET, POST } } = NextAuth({
                     if (process.env.NODE_ENV === 'development' && (!dbUser || !dbUser.approved)) {
                         console.warn(`[Dev Session] Auth check failed for ${token.sub} (Found: ${!!dbUser}, Approved: ${dbUser?.approved}), keeping session active.`);
                         // Force admin permissions for dev
-                        dbUser = { role: 'admin', approved: true };
+                        dbUser = { role: 'ADMIN', approved: true };
                     } else {
                         // Invalid/Unapproved user - destroy session effectively
-                        return { ...session, user: null as any };
+                        return { ...session, user: null as unknown as typeof session.user };
                     }
                 }
 
                 session.user.id = token.sub;
-                session.user.role = dbUser?.role || 'user'; // Use fresh DB role
+                session.user.role = normalizeRole(dbUser?.role); // Use fresh DB role
                 session.user.approved = dbUser?.approved || false;
             }
             return session;

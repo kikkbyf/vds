@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
+import { isAdminRole } from '@/lib/roles';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
+    if (!session?.user?.id || !isAdminRole(session.user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ count });
 
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to fetch pending count' }, { status: 500 });
     }
 }

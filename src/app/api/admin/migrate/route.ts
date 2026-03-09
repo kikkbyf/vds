@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { isAdminRole } from '@/lib/roles';
 
 export const maxDuration = 300; // 5 minutes max for migration
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     // 1. Security Check
     const session = await auth();
     if (!session?.user?.id) {
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-    if (user?.role !== 'ADMIN') {
+    if (!isAdminRole(user?.role)) {
         return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
     }
 
@@ -29,16 +30,9 @@ export async function GET(req: NextRequest) {
         });
 
         let updatedCount = 0;
-        let lastUser = null;
-        let lastTime = 0;
         let currentSessionId = null;
 
-        // Time window for grouping (e.g., 5 minutes)
-        const SESSION_WINDOW_MS = 5 * 60 * 1000;
-
         for (const creation of creations) {
-            const timestamp = new Date(creation.createdAt).getTime();
-
             // 1. Infer Creation Type (if not already set)
             // If creationType is already set, we might skip or re-evaluate. 
             // For safety, let's only set if missing or if we want to force refresh.
@@ -57,14 +51,6 @@ export async function GET(req: NextRequest) {
             // We do NOT use time window grouping for historical backfill. 
             // Every item gets its own unique session to preserve original "individual" state.
             currentSessionId = uuidv4();
-
-            // Update state (kept for reference or if we revert to grouping)
-            lastUser = creation.userId;
-            lastTime = timestamp;
-
-            // Update state
-            lastUser = creation.userId;
-            lastTime = timestamp;
 
             // Perform Update
             await prisma.creation.update({

@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { isAdminRole } from '@/lib/roles';
+
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return 'Failed to update';
+}
 
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
-        if (session?.user?.role !== 'ADMIN') {
+        if (!isAdminRole(session?.user?.role)) {
             const user = await prisma.user.findUnique({ where: { id: session?.user?.id } });
-            if (user?.role !== 'ADMIN') {
+            if (!isAdminRole(user?.role)) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
             }
         }
@@ -39,8 +45,8 @@ export async function POST(req: NextRequest) {
         ]);
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Failed to update credits:', error);
-        return NextResponse.json({ error: error.message || 'Failed to update' }, { status: 500 });
+        return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
     }
 }
