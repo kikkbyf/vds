@@ -23,8 +23,8 @@ RUN pip install fastapi uvicorn python-dotenv google-genai pydantic
 COPY package.json package-lock.json ./
 
 # 1. Install dependencies
-# We allow postinstall scripts to run naturally.
-# Even if they fail due to missing schema, we will run generate manually later.
+# Remove node_modules first to force a fresh install and bypass Docker layer cache
+RUN rm -rf node_modules
 RUN npm install --legacy-peer-deps
 
 # 2. Copy Source Code (includes prisma/schema.prisma)
