@@ -1,7 +1,7 @@
 'use client';
 
 // Imports updated
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { useRouter } from 'next/navigation';
 import CreationCard from '@/components/library/CreationCard';
@@ -32,6 +32,7 @@ export interface FullCreation {
     user?: {
         name: string | null;
         email: string;
+        image?: string | null;
     } | null;
 }
 
@@ -47,15 +48,12 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
     const [viewingUserId, setViewingUserId] = useState<string | null>(null);
 
     // 1. Group Creations by User
-    const userGroups = useMemo(() => {
-        const groups: Record<string, FullCreation[]> = {};
-        creations.forEach(c => {
-            const uid = c.userId;
-            if (!groups[uid]) groups[uid] = [];
-            groups[uid].push(c);
-        });
-        return groups;
-    }, [creations]);
+    const userGroups: Record<string, FullCreation[]> = {};
+    creations.forEach(c => {
+        const uid = c.userId;
+        if (!userGroups[uid]) userGroups[uid] = [];
+        userGroups[uid].push(c);
+    });
 
     const userIds = Object.keys(userGroups);
     // If Admin, forces directory view if there are ANY users (even just 1) so they can see who it is.
@@ -87,25 +85,19 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
     };
 
     // 2. Group by Session (for the active user view)
-    const sessionGroups = useMemo(() => {
-        const displayed = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
-        if (!displayed) return [];
-
-        const groups: Record<string, FullCreation[]> = {};
-        displayed.forEach(c => {
-            // Fallback for items without sessionId -> use their own ID (one-by-one)
-            const sid = c.sessionId || c.id;
-            if (!groups[sid]) groups[sid] = [];
-            groups[sid].push(c);
-        });
-
-        // Sort sessions by date (newest first)
-        return Object.entries(groups).sort(([, aItems], [, bItems]) => {
-            const dateA = new Date(aItems[0].createdAt).getTime();
-            const dateB = new Date(bItems[0].createdAt).getTime();
-            return dateB - dateA;
-        });
-    }, [effectiveViewingUserId, userGroups]);
+    const displayed = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
+    const sessionMap: Record<string, FullCreation[]> = {};
+    (displayed || []).forEach(c => {
+        // Fallback for items without sessionId -> use their own ID (one-by-one)
+        const sid = c.sessionId || c.id;
+        if (!sessionMap[sid]) sessionMap[sid] = [];
+        sessionMap[sid].push(c);
+    });
+    const sessionGroups = Object.entries(sessionMap).sort(([, aItems], [, bItems]) => {
+        const dateA = new Date(aItems[0].createdAt).getTime();
+        const dateB = new Date(bItems[0].createdAt).getTime();
+        return dateB - dateA;
+    });
 
     // LEVEL 1: USER DIRECTORY
     if (isMultiUser && !viewingUserId) {

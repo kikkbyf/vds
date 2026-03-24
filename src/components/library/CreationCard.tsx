@@ -1,8 +1,7 @@
 'use client';
 
-import { RefreshCw, Clock, Download, Copy, User as UserIcon, FolderPlus, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { RefreshCw, Clock, Download, Copy, User as UserIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import { useAssetStore } from '@/store/useAssetStore'; // Store import
 import { useRouter } from 'next/navigation';
 
 interface CreationItem {
@@ -16,6 +15,7 @@ interface CreationItem {
     user?: {
         name: string | null;
         email: string;
+        image?: string | null;
     } | null;
 }
 
@@ -54,7 +54,7 @@ export default function CreationCard({ item, isAdmin, onRemix, onClick }: Creati
                 body: JSON.stringify({ creationId: item.id, visible: !item.visible })
             });
             router.refresh();
-        } catch (err) {
+        } catch {
             alert('Failed to update');
         }
     };
@@ -69,13 +69,12 @@ export default function CreationCard({ item, isAdmin, onRemix, onClick }: Creati
                 body: JSON.stringify({ creationId: item.id })
             });
             router.refresh();
-        } catch (err) {
+        } catch {
             alert('Failed to delete');
         }
     };
 
     const isHidden = item.visible === false; // Default true if undefined
-    const isDeleted = !!item.deletedAt;
 
     return (
         <div className={`creation-card group ${isHidden ? 'opacity-50' : ''}`} onClick={onClick}>
