@@ -2,14 +2,24 @@
 
 import { useState } from 'react';
 import LibraryGrid from './LibraryGrid';
-import type { FullCreation } from '@/types/library';
+import type { FullCreation, LibraryUserSummary } from '@/types/library';
 import SideMenu from '@/components/layout/Sidebar';
 import { Bug } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const DebugLogModal = dynamic(() => import('@/components/library/DebugLogModal'), { ssr: false });
 
-export default function LibraryContent({ creations, isAdmin }: { creations: FullCreation[], isAdmin: boolean }) {
+export default function LibraryContent({
+    creations,
+    userSummaries,
+    totalCreations,
+    isAdmin
+}: {
+    creations: FullCreation[];
+    userSummaries: LibraryUserSummary[];
+    totalCreations: number;
+    isAdmin: boolean;
+}) {
     const [showLogs, setShowLogs] = useState(false);
 
     return (
@@ -20,7 +30,7 @@ export default function LibraryContent({ creations, isAdmin }: { creations: Full
                 <header className="library-header">
                     <div className="flex items-center gap-4">
                         <h1>My Library</h1>
-                        <span className="count">{creations.length} CREATIONS</span>
+                        <span className="count">{totalCreations} CREATIONS</span>
                     </div>
 
                     <div className="flex gap-2">
@@ -36,7 +46,7 @@ export default function LibraryContent({ creations, isAdmin }: { creations: Full
                 </header>
 
                 <div className="scroll-area">
-                    <LibraryGrid creations={creations} isAdmin={isAdmin} />
+                    <LibraryGrid creations={creations} userSummaries={userSummaries} isAdmin={isAdmin} />
                 </div>
             </main>
 

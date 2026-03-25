@@ -29,3 +29,11 @@ export interface FullCreation extends FullCreationBase {
     creationType?: LibraryCreationType;
     user?: LibraryCreationUser | null;
 }
+
+export interface LibraryUserSummary {
+    userId: string;
+    user: LibraryCreationUser | null;
+    latestImageUrl: string | null;
+    latestCreatedAt: Date | null;
+    creationCount: number;
+}

@@ -3,15 +3,9 @@ import prisma from '@/lib/prisma';
 import LibraryContent from './LibraryContent';
 import { redirect } from 'next/navigation';
 import type { Prisma } from '@prisma/client';
-import type { FullCreation } from '@/types/library';
+import type { FullCreation, LibraryUserSummary } from '@/types/library';
 import { isAdminRole } from '@/lib/roles';
-
-function normalizeCreationType(value: string | null | undefined): FullCreation['creationType'] {
-    if (value === 'extraction' || value === 'digital_human' || value === 'standard') {
-        return value;
-    }
-    return undefined;
-}
+import { buildUserSummaries, mapDbCreation, normalizeCreationType } from '@/lib/library';
 
 type LocalCreationLike = {
     id: string;
@@ -74,6 +68,8 @@ export default async function LibraryPage() {
     // Direct DB Query (No Server Action)
     let user: { role: string } | null = null;
     let creations: FullCreation[] = [];
+    let userSummaries: LibraryUserSummary[] = [];
+    let totalCreations = 0;
     let isAdmin = false;
 
     try {
@@ -94,50 +90,70 @@ export default async function LibraryPage() {
             where.deletedAt = null;
         }
 
-        const dbCreations = await prisma.creation.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            include: { user: true }
-        });
+        if (isAdmin) {
+            const grouped = await prisma.creation.groupBy({
+                by: ['userId'],
+                where,
+                _count: { _all: true },
+                _max: { createdAt: true },
+            });
 
-        // [LOCAL-DEV-FIX] SQLite Compatibility: Parse JSON strings back to Arrays
-        // Since we use String type for arrays in SQLite schema
-        creations = dbCreations.map((c) => ({
-            id: c.id,
-            userId: c.userId,
-            prompt: c.prompt,
-            negative: c.negative,
-            aspectRatio: c.aspectRatio,
-            imageSize: c.imageSize,
-            shotPreset: c.shotPreset,
-            lightingPreset: c.lightingPreset,
-            focalLength: c.focalLength,
-            guidance: c.guidance,
-            inputImageUrls: typeof c.inputImageUrls === 'string'
-                ? JSON.parse(c.inputImageUrls || '[]')
-                : c.inputImageUrls,
-            outputImageUrl: c.outputImageUrl,
-            status: c.status,
-            createdAt: c.createdAt,
-            sessionId: c.sessionId ?? undefined,
-            creationType: normalizeCreationType(c.creationType),
-            visible: c.visible,
-            deletedAt: c.deletedAt,
-            user: c.user
-                ? {
-                    name: c.user.name,
-                    email: c.user.email,
-                    image: c.user.image ?? null,
-                }
-                : null
-        }));
+            totalCreations = grouped.reduce((sum, item) => sum + item._count._all, 0);
+
+            if (grouped.length > 0) {
+                const users = await prisma.user.findMany({
+                    where: { id: { in: grouped.map((item) => item.userId) } },
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        image: true,
+                        creations: {
+                            where: { deletedAt: null },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                            select: {
+                                outputImageUrl: true,
+                                createdAt: true,
+                            },
+                        },
+                    },
+                });
+
+                const countsByUserId = new Map(grouped.map((item) => [item.userId, item._count._all]));
+                userSummaries = users
+                    .map((dbUser) => ({
+                        userId: dbUser.id,
+                        user: {
+                            name: dbUser.name,
+                            email: dbUser.email,
+                            image: dbUser.image ?? null,
+                        },
+                        latestImageUrl: dbUser.creations[0]?.outputImageUrl ?? null,
+                        latestCreatedAt: dbUser.creations[0]?.createdAt ?? null,
+                        creationCount: countsByUserId.get(dbUser.id) ?? 0,
+                    }))
+                    .sort((a, b) => new Date(b.latestCreatedAt ?? 0).getTime() - new Date(a.latestCreatedAt ?? 0).getTime());
+            }
+        } else {
+            const dbCreations = await prisma.creation.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                include: { user: true }
+            });
+
+            creations = dbCreations.map(mapDbCreation);
+            totalCreations = creations.length;
+        }
     } catch {
         console.warn("DB Connection failed, switching to Local File Mode");
         // Fallback to local file system scan
         const { getLocalCreations } = await import('@/lib/localLibrary');
         const localCreations = await getLocalCreations();
         creations = localCreations.map((item) => normalizeLocalCreation(item as LocalCreationLike));
+        totalCreations = creations.length;
         isAdmin = true; // Always admin in local dev
+        userSummaries = buildUserSummaries(creations);
     }
 
     // [LOCAL-DEV-ENHANCEMENT] 
@@ -171,6 +187,8 @@ export default async function LibraryPage() {
                     }
                 }));
 
+                userSummaries = buildUserSummaries(creations);
+                totalCreations = creations.length;
                 isAdmin = true; // Ensure admin view to see the groups
             }
         } catch (e) {
@@ -180,7 +198,7 @@ export default async function LibraryPage() {
 
     return (
         <main className="studio-layout">
-            <LibraryContent creations={creations} isAdmin={isAdmin} />
+            <LibraryContent creations={creations} userSummaries={userSummaries} totalCreations={totalCreations} isAdmin={isAdmin} />
         </main>
     );
 }

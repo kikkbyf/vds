@@ -8,18 +8,23 @@ import CreationCard from '@/components/library/CreationCard';
 import CreationDetailsModal from '@/components/library/CreationDetailsModal';
 import { Folder, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
-import type { FullCreation } from '@/types/library';
+import type { FullCreation, LibraryUserSummary } from '@/types/library';
 
 interface LibraryGridProps {
     creations: FullCreation[];
+    userSummaries?: LibraryUserSummary[];
     isAdmin?: boolean;
 }
 
-export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridProps) {
+export default function LibraryGrid({ creations, userSummaries = [], isAdmin = false }: LibraryGridProps) {
     const setParamsFromCreation = useStudioStore((state) => state.setParamsFromCreation);
     const router = useRouter();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+    const [loadedUserCreations, setLoadedUserCreations] = useState<Record<string, FullCreation[]>>({});
+    const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const isLazyAdminMode = isAdmin && userSummaries.length > 0;
 
     // 1. Group Creations by User
     const userGroups: Record<string, FullCreation[]> = {};
@@ -29,7 +34,17 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
         userGroups[uid].push(c);
     });
 
-    const userIds = Object.keys(userGroups);
+    const directoryEntries = isLazyAdminMode
+        ? userSummaries
+        : Object.entries(userGroups).map(([userId, items]) => ({
+            userId,
+            user: items[0]?.user ?? null,
+            latestImageUrl: items[0]?.outputImageUrl ?? null,
+            latestCreatedAt: items[0]?.createdAt ?? null,
+            creationCount: items.length,
+        }));
+
+    const userIds = directoryEntries.map((entry) => entry.userId);
     // If Admin, forces directory view if there are ANY users (even just 1) so they can see who it is.
     // Or if there are multiple users naturally.
     const isMultiUser = userIds.length > 1 || (isAdmin && userIds.length > 0);
@@ -37,8 +52,12 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
     // Determine current view mode
     const effectiveViewingUserId = isMultiUser ? viewingUserId : (userIds[0] || null);
 
+    const currentCreations = isLazyAdminMode
+        ? (effectiveViewingUserId ? loadedUserCreations[effectiveViewingUserId] ?? [] : [])
+        : (effectiveViewingUserId ? userGroups[effectiveViewingUserId] ?? [] : creations);
+
     const handleRemix = (id: string) => {
-        const creation = creations.find(c => c.id === id);
+        const creation = currentCreations.find(c => c.id === id);
         if (!creation) return;
 
         setParamsFromCreation({
@@ -58,10 +77,37 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
         router.push('/');
     };
 
+    const openUserLibrary = async (userId: string) => {
+        setViewingUserId(userId);
+        setLoadError(null);
+
+        if (!isLazyAdminMode || loadedUserCreations[userId]) {
+            return;
+        }
+
+        setLoadingUserId(userId);
+        try {
+            const response = await fetch(`/api/library/users/${userId}`);
+            if (!response.ok) {
+                throw new Error('加载用户素材失败');
+            }
+
+            const data = await response.json() as { creations?: FullCreation[] };
+            setLoadedUserCreations((prev) => ({
+                ...prev,
+                [userId]: Array.isArray(data.creations) ? data.creations : [],
+            }));
+        } catch (error) {
+            console.error(error);
+            setLoadError('加载该用户素材失败，请重试。');
+        } finally {
+            setLoadingUserId((current) => current === userId ? null : current);
+        }
+    };
+
     // 2. Group by Session (for the active user view)
-    const displayed = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
     const sessionMap: Record<string, FullCreation[]> = {};
-    (displayed || []).forEach(c => {
+    currentCreations.forEach(c => {
         // Fallback for items without sessionId -> use their own ID (one-by-one)
         const sid = c.sessionId || c.id;
         if (!sessionMap[sid]) sessionMap[sid] = [];
@@ -79,26 +125,21 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
             <div className="directory-container">
                 <h2 className="section-title">User Directory <span className="count">({userIds.length})</span></h2>
                 <div className="folder-grid">
-                    {userIds.map(uid => {
-                        const userCreations = userGroups[uid];
-                        const user = userCreations[0]?.user;
-                        const latestImage = userCreations[0]?.outputImageUrl;
-
+                    {directoryEntries.map((entry) => {
                         return (
                             <div
-                                key={uid}
+                                key={entry.userId}
                                 className="folder-card"
                                 onClick={() => {
-                                    console.log('Entering user lib:', uid);
-                                    setViewingUserId(uid);
+                                    void openUserLibrary(entry.userId);
                                 }}
                                 style={{ cursor: 'pointer' }}
                             >
                                 <div className="folder-preview">
-                                    {latestImage ? (
+                                    {entry.latestImageUrl ? (
                                         <div className="preview-image">
                                             <Image
-                                                src={latestImage}
+                                                src={entry.latestImageUrl}
                                                 alt="Cover"
                                                 width={300}
                                                 height={300}
@@ -113,12 +154,12 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
                                     )}
                                     <div className="count-badge">
                                         <ImageIcon size={12} />
-                                        <span>{userCreations.length}</span>
+                                        <span>{entry.creationCount}</span>
                                     </div>
                                 </div>
                                 <div className="folder-info">
-                                    <h3 className="user-email" title={user?.email}>{user?.email || 'Unknown User'}</h3>
-                                    <p className="user-id">ID: {uid.substring(0, 8)}...</p>
+                                    <h3 className="user-email" title={entry.user?.email}>{entry.user?.email || 'Unknown User'}</h3>
+                                    <p className="user-id">ID: {entry.userId.substring(0, 8)}...</p>
                                 </div>
                             </div>
                         );
@@ -204,9 +245,69 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
     }
 
     // Determine current user info for header
-    const displayedCreations = effectiveViewingUserId ? userGroups[effectiveViewingUserId] : [];
-    const currentUserInfo = displayedCreations?.[0]?.user;
-    const selectedCreation = creations.find(c => c.id === selectedId);
+    const displayedCreations = currentCreations;
+    const currentUserInfo = directoryEntries.find((entry) => entry.userId === effectiveViewingUserId)?.user ?? displayedCreations?.[0]?.user;
+    const selectedCreation = displayedCreations.find(c => c.id === selectedId);
+
+    if (isLazyAdminMode && viewingUserId && loadingUserId === viewingUserId && displayedCreations.length === 0) {
+        return (
+            <div className="empty-state">
+                <h2>正在加载该用户的素材...</h2>
+                <p>请稍候，按需读取历史记录中。</p>
+                <style jsx>{`
+                    .empty-state {
+                        height: 60vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--text-secondary);
+                        text-align: center;
+                    }
+                    h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); }
+                    p { font-size: 14px; }
+                `}</style>
+            </div>
+        );
+    }
+
+    if (isLazyAdminMode && viewingUserId && loadError && displayedCreations.length === 0) {
+        return (
+            <div className="empty-state">
+                <h2>加载失败</h2>
+                <p>{loadError}</p>
+                <button
+                    className="retry-btn"
+                    onClick={() => {
+                        void openUserLibrary(viewingUserId);
+                    }}
+                >
+                    重试
+                </button>
+                <style jsx>{`
+                    .empty-state {
+                        height: 60vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--text-secondary);
+                        text-align: center;
+                    }
+                    h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-primary); }
+                    p { font-size: 14px; margin-bottom: 16px; }
+                    .retry-btn {
+                        border: 1px solid var(--border-color);
+                        background: var(--bg-panel);
+                        color: var(--text-primary);
+                        border-radius: 8px;
+                        padding: 8px 14px;
+                        cursor: pointer;
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     if (!displayedCreations || displayedCreations.length === 0) {
         return (
@@ -285,7 +386,7 @@ export default function LibraryGrid({ creations, isAdmin = false }: LibraryGridP
                     creation={selectedCreation}
                     isAdmin={isAdmin}
                     // Pass all items from the same session
-                    relatedCreations={creations.filter(c => c.sessionId === selectedCreation.sessionId)}
+                    relatedCreations={displayedCreations.filter(c => c.sessionId === selectedCreation.sessionId)}
                     onClose={() => setSelectedId(null)}
                     onRemix={handleRemix}
                 />
