@@ -88,7 +88,7 @@ scripts/diagnose_startup.py
 
 # Non-core / Generated
 .claude/
+.openclaw/
 test_gemini_image.py
 debug_config.py
 debug_sdk.py
-
