@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import LibraryContent from './LibraryContent';
 import { redirect } from 'next/navigation';
 import type { Prisma } from '@prisma/client';
-import type { FullCreation } from './LibraryGrid';
+import type { FullCreation } from '@/types/library';
 import { isAdminRole } from '@/lib/roles';
 
 function normalizeCreationType(value: string | null | undefined): FullCreation['creationType'] {
@@ -32,11 +32,7 @@ type LocalCreationLike = {
     creationType?: string | null;
     visible?: boolean;
     deletedAt?: Date | string | null;
-    user?: {
-        name?: string | null;
-        email: string;
-        image?: string | null;
-    } | null;
+    user?: FullCreation['user'];
 };
 
 function normalizeLocalCreation(item: LocalCreationLike): FullCreation {
@@ -58,7 +54,7 @@ function normalizeLocalCreation(item: LocalCreationLike): FullCreation {
         sessionId: item.sessionId ?? undefined,
         creationType: normalizeCreationType(item.creationType),
         visible: item.visible ?? true,
-        deletedAt: item.deletedAt ?? null,
+        deletedAt: item.deletedAt ? new Date(item.deletedAt) : null,
         user: item.user
             ? {
                 name: item.user.name ?? null,

@@ -1,7 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 // Imports updated
 import { useState, useEffect } from 'react';
-import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Sliders, Layers, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { FullCreation } from '@/app/library/LibraryGrid';
+import { X, Copy, Download, RefreshCw, Calendar, Image as ImageIcon, Layers, Eye, EyeOff, Trash2 } from 'lucide-react';
+import type { FullCreation } from '@/types/library';
 import { useRouter } from 'next/navigation';
 
 interface CreationDetailsModalProps {
@@ -46,7 +47,7 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
             // Update local state temporarily
             setActiveCreation(prev => ({ ...prev, visible: !prev.visible }));
             router.refresh();
-        } catch (err) {
+        } catch {
             alert('Failed to update');
         }
     };
@@ -61,7 +62,7 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
             });
             onClose(); // Close modal on delete
             router.refresh();
-        } catch (err) {
+        } catch {
             alert('Failed to delete');
         }
     };
@@ -69,7 +70,6 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
     // Filter related items: Extractions and the Main one (if needed for context)
     // We want to list "Technical Assets" specifically
     const extractions = relatedCreations.filter(c => c.creationType === 'extraction');
-    const hasExtractions = extractions.length > 0;
 
     // Also identify the "main" digital human(s) to allow switching back
     const digitalHumans = relatedCreations.filter(c => c.creationType === 'digital_human' || c.creationType === 'standard');
@@ -189,13 +189,7 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                         </div>
 
                         {(() => {
-                            let inputs: string[] = [];
-                            try {
-                                const raw = creation.inputImageUrls;
-                                inputs = typeof raw === 'string' ? JSON.parse(raw) : raw;
-                            } catch (e) {
-                                inputs = [];
-                            }
+                            const inputs = activeCreation.inputImageUrls;
 
                             if (inputs && inputs.length > 0) {
                                 return (
@@ -204,7 +198,6 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                                         <div className="inputs-grid">
                                             {inputs.map((url, i) => (
                                                 <div key={i} className="input-thumb">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img src={url} alt={`Ref ${i}`} />
                                                 </div>
                                             ))}
@@ -218,10 +211,10 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
                         <div className="detail-group">
                             <label>Settings</label>
                             <div className="params-grid">
-                                <ParamItem label="Shot" value={creation.shotPreset} />
-                                <ParamItem label="Lighting" value={creation.lightingPreset} />
-                                <ParamItem label="Focal Length" value={creation.focalLength ? `${creation.focalLength}mm` : null} />
-                                <ParamItem label="Guidance" value={creation.guidance} />
+                                <ParamItem label="Shot" value={activeCreation.shotPreset} />
+                                <ParamItem label="Lighting" value={activeCreation.lightingPreset} />
+                                <ParamItem label="Focal Length" value={activeCreation.focalLength ? `${activeCreation.focalLength}mm` : null} />
+                                <ParamItem label="Guidance" value={activeCreation.guidance} />
                             </div>
                         </div>
                     </div>
@@ -535,12 +528,12 @@ export default function CreationDetailsModal({ creation, relatedCreations = [], 
     );
 }
 
-function ParamItem({ label, value }: { label: string, value: any }) {
-    if (!value) return null;
+function ParamItem({ label, value }: { label: string, value: string | number | boolean | null | undefined }) {
+    if (value === null || value === undefined || value === '') return null;
     return (
         <div className="param-item">
             <span className="p-label">{label}</span>
-            <span className="p-value">{value}</span>
+            <span className="p-value">{String(value)}</span>
             <style jsx>{`
                 .param-item {
                     background: rgba(255,255,255,0.03);

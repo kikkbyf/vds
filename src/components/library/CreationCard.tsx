@@ -3,24 +3,10 @@
 import { RefreshCw, Clock, Download, Copy, User as UserIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-
-interface CreationItem {
-    id: string;
-    prompt: string;
-    outputImageUrl: string;
-    createdAt: Date | string;
-    imageSize?: string;
-    visible?: boolean;
-    deletedAt?: Date | string | null;
-    user?: {
-        name: string | null;
-        email: string;
-        image?: string | null;
-    } | null;
-}
+import type { FullCreation } from '@/types/library';
 
 interface CreationCardProps {
-    item: CreationItem;
+    item: FullCreation;
     isAdmin?: boolean;
     onRemix: (id: string) => void;
     onClick?: () => void;

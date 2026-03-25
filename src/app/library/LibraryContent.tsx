@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import LibraryGrid from './LibraryGrid';
+import type { FullCreation } from '@/types/library';
 import SideMenu from '@/components/layout/Sidebar';
 import { Bug } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const DebugLogModal = dynamic(() => import('@/components/library/DebugLogModal'), { ssr: false });
 
-export default function LibraryContent({ creations, isAdmin }: { creations: any[], isAdmin: boolean }) {
+export default function LibraryContent({ creations, isAdmin }: { creations: FullCreation[], isAdmin: boolean }) {
     const [showLogs, setShowLogs] = useState(false);
 
     return (

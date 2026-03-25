@@ -8,33 +8,7 @@ import CreationCard from '@/components/library/CreationCard';
 import CreationDetailsModal from '@/components/library/CreationDetailsModal';
 import { Folder, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
-
-// Define the full creation type needed for remixing
-export interface FullCreation {
-    id: string;
-    userId: string;
-    prompt: string;
-    negative: string | null;
-    aspectRatio: string;
-    imageSize: string;
-    shotPreset: string | null;
-    lightingPreset: string | null;
-    focalLength: number | null;
-    guidance: number | null;
-    inputImageUrls: string[];
-    outputImageUrl: string;
-    status: string;
-    createdAt: Date;
-    sessionId?: string;
-    creationType?: 'extraction' | 'digital_human' | 'standard';
-    visible?: boolean;
-    deletedAt?: Date | string | null;
-    user?: {
-        name: string | null;
-        email: string;
-        image?: string | null;
-    } | null;
-}
+import type { FullCreation } from '@/types/library';
 
 interface LibraryGridProps {
     creations: FullCreation[];
